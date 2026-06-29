@@ -1,0 +1,2272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross-Sell Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e4e8f0; color: #1a2233; }
+  .header { background: #fff; border-bottom: 1px solid #d6daea; padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .header-title { font-size: 19px; font-weight: 700; color: #1a2233; }
+  .header-sub { font-size: 12px; color: #7a85a3; margin-top: 3px; }
+  .main { padding: 20px 28px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* Filters */
+  .filters { background: #fff; border: 1px solid #d6daea; border-radius: 12px; padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .filter-group { display: flex; flex-direction: column; gap: 5px; }
+  .filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #7a85a3; }
+
+  .seg-btns { display: flex; }
+  .seg-btns button { padding: 6px 14px; font-size: 12px; font-weight: 500; border: 1px solid #c8cedf; background: #fff; color: #4a5578; cursor: pointer; transition: all .12s; white-space: nowrap; }
+  .seg-btns button:first-child { border-radius: 7px 0 0 7px; }
+  .seg-btns button:last-child  { border-radius: 0 7px 7px 0; }
+  .seg-btns button:not(:first-child) { border-left: none; }
+  .seg-btns button.active { background: #2563eb; color: #fff; border-color: #2563eb; z-index: 1; }
+  .seg-btns button:hover:not(.active) { background: #f0f3fb; }
+
+  .dd-wrap { position: relative; }
+  .dd-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 148px; padding: 6px 12px; border: 1px solid #c8cedf; border-radius: 7px; background: #fff; color: #1a2233; font-size: 13px; cursor: pointer; transition: border-color .12s; }
+  .dd-toggle:hover, .dd-wrap.open .dd-toggle { border-color: #2563eb; }
+  .dd-toggle .caret { font-size: 10px; color: #7a85a3; transition: transform .15s; }
+  .dd-wrap.open .caret { transform: rotate(180deg); }
+  .dd-panel { position: absolute; top: calc(100% + 5px); left: 0; min-width: 180px; background: #fff; border: 1px solid #c8cedf; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12); z-index: 500; display: none; padding: 6px 0; }
+  .dd-wrap.open .dd-panel { display: block; }
+  .dd-item { display: flex; align-items: center; gap: 9px; padding: 7px 14px; cursor: pointer; font-size: 13px; color: #2d3556; transition: background .1s; user-select: none; }
+  .dd-item:hover { background: #f0f3fb; }
+  .dd-item.all-item { font-weight: 600; color: #2563eb; border-bottom: 1px solid #e8ecf4; margin-bottom: 2px; padding-bottom: 9px; }
+  .dd-item input[type=checkbox] { accent-color: #2563eb; width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+
+  .btn-reset { padding: 6px 14px; border: 1px solid #c8cedf; border-radius: 7px; background: #fff; color: #4a5578; font-size: 12px; cursor: pointer; transition: all .12s; white-space: nowrap; }
+  .btn-reset:hover { background: #fef2f2; border-color: #e57373; color: #c0392b; }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .kpi { background: #fff; border: 1px solid #d6daea; border-radius: 12px; padding: 18px 22px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .kpi .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #7a85a3; margin-bottom: 7px; }
+  .kpi .value { font-size: 30px; font-weight: 700; color: #1a2233; letter-spacing: -0.5px; }
+  .kpi .delta { font-size: 12px; color: #7a85a3; margin-top: 4px; }
+  .kpi.imp { border-top: 3px solid #2563eb; } .kpi.clk { border-top: 3px solid #7c3aed; }
+  .kpi.qst { border-top: 3px solid #0891b2; } .kpi.cvt { border-top: 3px solid #059669; }
+
+  /* Charts */
+  .charts-main { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+  .chart-card { background: #fff; border: 1px solid #d6daea; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .chart-card h2 { font-size: 14px; font-weight: 700; color: #1a2233; margin-bottom: 3px; }
+  .chart-card .chart-sub { font-size: 12px; color: #9aa3bc; margin-bottom: 14px; }
+  canvas { max-height: 340px; }
+  .breakdown-row { display: none; }
+  .breakdown-row.visible { display: block; }
+
+  /* Date range inputs */
+  .date-range { display: flex; align-items: center; gap: 6px; }
+  .date-input { padding: 6px 10px; border: 1px solid #c8cedf; border-radius: 7px; background: #fff; font-size: 13px; color: #1a2233; cursor: pointer; outline: none; font-family: inherit; }
+  .date-input:focus { border-color: #2563eb; }
+  .date-sep { font-size: 12px; color: #9aa3bc; }
+
+  /* KPI trend badges */
+  .kpi .trend { font-size: 11px; margin-top: 4px; color: #7a85a3; }
+  .trend-up   { color: #059669; font-weight: 700; }
+  .trend-dn   { color: #dc2626; font-weight: 700; }
+
+  /* Sparklines inside KPI cards */
+  .spark-wrap { margin: 8px 0 2px; height: 44px; position: relative; }
+  .spark-wrap canvas { display: block; width: 100% !important; height: 44px !important; }
+
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .charts-main { grid-template-columns: 1fr; }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="header-title">Cross-Sell Performance Dashboard</div>
+    <div class="header-sub">Insurance cross-sell funnel · Aug 2025 – Jul 2026</div>
+  </div>
+</div>
+<div class="main">
+
+  <!-- Filters -->
+  <div class="filters">
+    <div class="filter-group">
+      <span class="filter-label">Date Range</span>
+      <div class="date-range">
+        <input type="date" id="date-from" class="date-input" value="2025-08-31" min="2025-08-31" max="2026-07-01" onchange="update()">
+        <span class="date-sep">→</span>
+        <input type="date" id="date-to"   class="date-input" value="2026-07-01" min="2025-08-31" max="2026-07-01" onchange="update()">
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Date by</span>
+      <div class="seg-btns">
+        <button id="btn-day" onclick="setGran('day')">Day</button>
+        <button id="btn-month" class="active" onclick="setGran('month')">Month</button>
+        <button id="btn-year" onclick="setGran('year')">Year</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Agent</span>
+      <div class="dd-wrap" id="dd-agent">
+        <button class="dd-toggle" onclick="toggleDD('agent')">All Agents <span class="caret">▾</span></button>
+        <div class="dd-panel">
+          <label class="dd-item all-item"><input type="checkbox" id="all-agent" checked onchange="toggleAll('agent',this.checked)"> All</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Agent_Carlos" checked onchange="filterChanged('agent')"> Carlos</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Agent_Dipti" checked onchange="filterChanged('agent')"> Dipti</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Agent_Lin" checked onchange="filterChanged('agent')"> Lin</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Agent_Maria" checked onchange="filterChanged('agent')"> Maria</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Agent_Sharon" checked onchange="filterChanged('agent')"> Sharon</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Agent_Tom" checked onchange="filterChanged('agent')"> Tom</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Channel</span>
+      <div class="dd-wrap" id="dd-channel">
+        <button class="dd-toggle" onclick="toggleDD('channel')">All Channels <span class="caret">▾</span></button>
+        <div class="dd-panel">
+          <label class="dd-item all-item"><input type="checkbox" id="all-channel" checked onchange="toggleAll('channel',this.checked)"> All</label>
+          <label class="dd-item"><input type="checkbox" class="cb-channel" value="Agent Call" checked onchange="filterChanged('channel')"> Agent Call</label>
+          <label class="dd-item"><input type="checkbox" class="cb-channel" value="Branch Visit" checked onchange="filterChanged('channel')"> Branch Visit</label>
+          <label class="dd-item"><input type="checkbox" class="cb-channel" value="Mobile App" checked onchange="filterChanged('channel')"> Mobile App</label>
+          <label class="dd-item"><input type="checkbox" class="cb-channel" value="Web" checked onchange="filterChanged('channel')"> Web</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Policy Type</span>
+      <div class="dd-wrap" id="dd-policy">
+        <button class="dd-toggle" onclick="toggleDD('policy')">All Policies <span class="caret">▾</span></button>
+        <div class="dd-panel">
+          <label class="dd-item all-item"><input type="checkbox" id="all-policy" checked onchange="toggleAll('policy',this.checked)"> All</label>
+          <label class="dd-item"><input type="checkbox" class="cb-policy" value="Auto" checked onchange="filterChanged('policy')"> Auto</label>
+          <label class="dd-item"><input type="checkbox" class="cb-policy" value="Home" checked onchange="filterChanged('policy')"> Home</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">Break by</span>
+      <div class="seg-btns" id="break-btns">
+        <button class="active" onclick="setBreak('none')">Overall</button>
+        <button onclick="setBreak('agent')">Agent</button>
+        <button onclick="setBreak('channel')">Channel</button>
+        <button onclick="setBreak('policy')">Policy</button>
+      </div>
+    </div>
+
+    <div class="filter-group" style="align-self:flex-end">
+      <button class="btn-reset" onclick="resetAll()">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi imp"><div class="label">Impressions</div><div class="value" id="kpi-imp">—</div><div class="spark-wrap"><canvas id="spark-imp"></canvas></div><div class="delta" id="kpi-imp-d"></div><div class="trend" id="kpi-imp-t"></div></div>
+    <div class="kpi clk"><div class="label">Clicks</div><div class="value" id="kpi-clk">—</div><div class="spark-wrap"><canvas id="spark-clk"></canvas></div><div class="delta" id="kpi-clk-d"></div><div class="trend" id="kpi-clk-t"></div></div>
+    <div class="kpi qst"><div class="label">Quotes Started</div><div class="value" id="kpi-qst">—</div><div class="spark-wrap"><canvas id="spark-qst"></canvas></div><div class="delta" id="kpi-qst-d"></div><div class="trend" id="kpi-qst-t"></div></div>
+    <div class="kpi cvt"><div class="label">Conversions</div><div class="value" id="kpi-cvt">—</div><div class="spark-wrap"><canvas id="spark-cvt"></canvas></div><div class="delta" id="kpi-cvt-d"></div><div class="trend" id="kpi-cvt-t"></div></div>
+  </div>
+
+  <!-- Main charts -->
+  <div class="charts-main">
+    <div class="chart-card">
+      <h2 id="time-title">Volume Over Time</h2>
+      <div class="chart-sub" id="time-sub">Funnel stage counts with conv. rate overlay</div>
+      <canvas id="timeChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Funnel Drop-off</h2>
+      <div class="chart-sub" id="funnel-sub">Stage-by-stage volume</div>
+      <canvas id="funnelChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Breakdown row (visible when Break by ≠ None) -->
+  <div class="breakdown-row" id="breakdown-row">
+    <div class="chart-card">
+      <h2 id="breakdown-title">Breakdown Comparison</h2>
+      <div class="chart-sub" id="breakdown-sub">Conv. rate % and volume per group</div>
+      <canvas id="breakChart" style="max-height:260px"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const RAW = [
+{d:"2025-08-31",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:2},
+{d:"2025-08-31",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:2},
+{d:"2025-08-31",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-08-31",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-08-31",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-01",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-01",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-02",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-02",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-02",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-02",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-09-03",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-03",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-04",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-04",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-04",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-04",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-04",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-04",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-09-05",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-05",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-09-05",a:"Agent_Maria",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2025-09-05",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-09-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-05",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-06",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-06",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-06",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-07",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-07",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-07",a:"Agent_Maria",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-07",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-09-07",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-07",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-08",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-08",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-08",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-08",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-09",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-09-09",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-09",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-09-09",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-09",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-09",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-09",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Converted",n:2},
+{d:"2025-09-09",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-09",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-09-09",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-09",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-09",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-10",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-10",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-10",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-09-10",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-09-10",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-11",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-11",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-09-11",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-11",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-12",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-09-12",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-12",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-09-12",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2025-09-12",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-13",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-09-13",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-09-13",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-13",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-13",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-09-13",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-09-13",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-14",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-09-14",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-14",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-14",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-09-14",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-14",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-14",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-15",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:2},
+{d:"2025-09-15",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-15",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-15",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-16",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-09-16",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-16",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-17",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-17",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-17",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-18",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-09-18",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-18",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-18",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-09-19",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-09-19",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-09-19",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-19",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:2},
+{d:"2025-09-19",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-09-19",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-19",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-19",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-20",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-09-20",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:2},
+{d:"2025-09-20",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-20",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-09-20",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-20",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-20",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-09-21",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-21",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-21",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-09-21",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-09-21",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-21",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-21",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-09-22",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-22",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-09-22",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-22",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-09-22",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-22",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-09-23",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-23",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2025-09-23",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-24",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-09-24",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-09-25",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-25",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-09-25",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:2},
+{d:"2025-09-26",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-26",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-09-27",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-09-27",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-27",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:2},
+{d:"2025-09-27",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-09-27",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-27",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:2},
+{d:"2025-09-28",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-09-28",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:2},
+{d:"2025-09-28",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-28",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-09-28",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-09-28",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Click",n:2},
+{d:"2025-09-29",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-29",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-09-29",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-09-29",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-30",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-09-30",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-09-30",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-30",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-09-30",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-02",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-10-02",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-02",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-02",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-02",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-10-03",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-10-03",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-03",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-03",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-03",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-03",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-04",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-04",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-10-04",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-04",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-10-05",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-05",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-06",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-10-06",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-06",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-07",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-07",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-07",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-07",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-08",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-08",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-08",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-08",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-08",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-10-09",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-10-09",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-09",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-10-09",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-09",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-10-09",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-10",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-10-10",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-10-10",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-10-11",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-11",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-11",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-10-11",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-10-11",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-11",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-10-11",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-11",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-12",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-13",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-13",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-13",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-13",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-13",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-10-13",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-13",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-14",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-14",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-10-14",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-14",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-14",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-14",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-15",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-15",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-10-15",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-10-15",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-15",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:2},
+{d:"2025-10-15",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-15",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-10-15",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-10-15",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-15",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-16",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-10-16",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-16",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-16",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-17",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-17",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-10-17",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-10-17",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-17",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-17",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-17",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-17",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:2},
+{d:"2025-10-17",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-18",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2025-10-18",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-10-18",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:2},
+{d:"2025-10-18",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-18",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-19",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-19",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-10-19",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-10-19",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-10-19",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-19",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-20",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-20",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-20",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-10-20",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-20",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-20",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-10-20",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-20",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-10-21",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-21",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-10-21",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-10-21",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-10-21",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-10-22",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-22",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-22",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-23",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2025-10-23",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-23",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2025-10-23",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-23",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-23",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-10-24",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-24",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-24",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-24",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-10-24",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-24",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-24",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-24",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-10-24",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-25",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-25",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-10-25",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-25",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-10-25",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-26",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-26",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-26",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-10-26",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Converted",n:2},
+{d:"2025-10-26",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-10-27",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-10-27",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-10-27",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Converted",n:1},
+{d:"2025-10-27",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Converted",n:1},
+{d:"2025-10-27",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-10-27",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-10-28",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-28",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-28",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-28",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-10-29",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-10-29",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-10-30",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-10-30",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-31",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-10-31",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2025-10-31",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-31",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-10-31",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-10-31",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-10-31",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-10-31",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-01",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-01",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-01",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-01",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-01",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-01",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-11-01",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-02",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-02",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-02",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-11-02",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-02",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-02",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-02",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-03",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-03",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-03",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-11-03",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2025-11-03",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:2},
+{d:"2025-11-03",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-04",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-04",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-11-05",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:2},
+{d:"2025-11-05",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-11-05",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-05",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-06",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-06",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-06",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-11-06",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-07",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-07",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-07",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-07",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-07",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-07",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-07",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-07",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-11-08",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-11-08",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-11-08",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-08",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-11-08",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-08",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-08",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-11-09",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2025-11-09",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-11-09",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-10",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-10",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-11-10",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:2},
+{d:"2025-11-10",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-10",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-11",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-11",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-11",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-11-11",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-11",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-12",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-12",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-11-12",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-12",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-12",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-12",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-12",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-12",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-11-12",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-13",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-11-13",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-11-13",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:2},
+{d:"2025-11-13",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-11-13",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-13",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-13",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-14",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-14",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-14",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-14",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-11-14",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-14",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-14",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-15",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-15",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-15",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-15",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-11-15",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2025-11-15",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-16",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-16",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-16",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-16",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-17",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:2},
+{d:"2025-11-17",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-17",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-11-17",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-11-17",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-18",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-18",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-18",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-18",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-19",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:2},
+{d:"2025-11-19",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-11-19",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-19",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-19",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-19",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2025-11-20",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-20",a:"Agent_Maria",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-11-20",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-11-21",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-11-21",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-11-21",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-21",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2025-11-22",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-22",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-23",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-23",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-24",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-24",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-24",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-11-24",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-25",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-25",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-25",a:"Agent_Maria",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2025-11-25",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-11-25",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-11-26",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-11-26",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-26",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-27",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-27",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-11-27",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-11-27",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-28",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-11-28",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-28",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-29",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-11-29",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-29",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-29",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2025-11-29",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-11-29",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-30",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-30",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-11-30",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-30",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-11-30",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-11-30",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-11-30",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-01",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-01",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-01",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-01",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-01",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-02",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-02",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-12-02",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-02",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-03",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-03",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-03",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-12-03",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-03",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-03",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-03",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-03",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-03",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-03",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-03",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-04",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-04",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-04",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-04",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-04",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-04",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-04",a:"Agent_Maria",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-04",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-04",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-05",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-12-05",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-05",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-05",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-05",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-05",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-05",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-12-06",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Converted",n:1},
+{d:"2025-12-06",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-06",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-06",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-06",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-06",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-12-06",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-06",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:2},
+{d:"2025-12-06",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-06",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-07",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-07",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-07",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-07",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-07",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-07",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-08",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-08",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-08",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-08",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-08",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:2},
+{d:"2025-12-08",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-08",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-09",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-09",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-09",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-09",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-09",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-12-09",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-09",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-09",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-09",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-10",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2025-12-10",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-12-11",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-11",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-12",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-12",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-12",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-12",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-12",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-12",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-12",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-12-12",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-12",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-12-12",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-13",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-13",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-13",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-14",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-14",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-14",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-14",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-12-14",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-14",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:2},
+{d:"2025-12-14",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-14",a:"Agent_Tom",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-15",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-15",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-12-15",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-15",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-15",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-15",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-15",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-16",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-16",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-16",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-16",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-16",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2025-12-16",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-16",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-16",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-16",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-17",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-12-17",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-17",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-17",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-17",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-17",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-18",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-18",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-18",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-18",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-18",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-18",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-18",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-12-18",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-18",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-19",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-12-19",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-19",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-19",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-19",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-19",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-12-19",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-19",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-19",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-19",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-19",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2025-12-20",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-20",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-20",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-20",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-20",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-20",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-20",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-21",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-12-21",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-21",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-21",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-12-21",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-21",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-21",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-22",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-22",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-22",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-22",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-22",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-12-23",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-23",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-23",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-23",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-23",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-23",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-23",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-23",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2025-12-23",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-24",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-24",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-24",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-24",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-25",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-25",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-12-25",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-25",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-25",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-12-25",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-25",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-26",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2025-12-26",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-26",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-26",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-26",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-27",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-27",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-27",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-28",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-28",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-28",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-28",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-28",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2025-12-28",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:2},
+{d:"2025-12-28",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2025-12-28",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-28",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-29",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2025-12-29",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2025-12-29",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2025-12-29",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-29",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2025-12-29",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2025-12-30",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2025-12-30",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2025-12-30",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2025-12-31",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2025-12-31",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2025-12-31",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2025-12-31",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-01-02",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-02",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-02",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:2},
+{d:"2026-01-02",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-02",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-03",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-01-03",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-03",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-01-03",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-04",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-04",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-04",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-04",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-04",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-04",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-04",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-01-04",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-04",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-05",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-01-05",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-05",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-01-05",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-05",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-05",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-01-05",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-05",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-05",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-06",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-01-06",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-06",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-01-06",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:2},
+{d:"2026-01-06",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-06",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-06",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-07",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-07",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-07",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-07",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-01-07",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-07",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-08",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-08",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-08",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-08",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-08",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-01-09",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-01-09",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-09",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-09",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-01-09",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-09",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-09",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-10",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:2},
+{d:"2026-01-10",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-10",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-10",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-10",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-10",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-11",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-01-11",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-11",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:2},
+{d:"2026-01-11",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-11",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-01-11",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-11",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-11",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-12",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-12",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-12",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-13",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-01-13",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-13",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-01-13",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-13",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-13",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-13",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-01-13",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-13",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-13",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-01-14",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-01-14",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-14",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-01-15",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-15",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-15",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-15",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-15",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-15",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-01-16",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-16",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-16",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-01-16",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-17",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-01-17",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-17",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-17",a:"Agent_Maria",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-17",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-01-17",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-18",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-18",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-18",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-19",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-01-19",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-19",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-19",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-01-19",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-01-19",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-19",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-20",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-20",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-21",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-01-21",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-01-21",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-01-22",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-22",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-22",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-22",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-01-22",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-22",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-01-23",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-23",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-23",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-01-23",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-01-24",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-01-24",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-01-24",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-24",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-24",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-25",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-25",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2026-01-25",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-25",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-25",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-25",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-26",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-26",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-26",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-01-26",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-01-27",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-27",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-27",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-01-27",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-27",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-27",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-27",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-28",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-28",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-01-28",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-28",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-28",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-01-28",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-28",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-01-28",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-01-29",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-01-29",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-29",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-29",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-01-30",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-01-30",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-30",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-01-31",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Converted",n:1},
+{d:"2026-01-31",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-31",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-01-31",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-01-31",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-31",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-01-31",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-31",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-01-31",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-01-31",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-01-31",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-01",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-02-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-02-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-01",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-01",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-01",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-02-01",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-01",a:"Agent_Maria",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-01",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-02",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-02",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-02",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-02",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-02",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-02-03",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-03",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-03",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-02-03",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-02-03",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-03",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-04",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-04",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-04",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-02-04",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-04",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-04",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-02-04",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-02-04",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-05",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-05",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-05",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-06",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-02-06",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-02-06",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-06",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-07",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-07",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-08",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-08",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-02-08",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-02-08",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-02-08",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-08",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-08",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-08",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-09",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-02-09",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-09",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-09",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-10",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-02-10",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-10",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-02-10",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-10",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-02-10",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-10",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2026-02-10",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-10",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-11",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-11",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-11",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-11",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-11",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-11",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-11",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-02-12",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-12",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-12",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-12",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-02-12",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-02-12",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-12",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-13",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-13",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-02-13",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-13",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-02-13",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-13",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-13",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-14",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2026-02-14",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-14",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Converted",n:1},
+{d:"2026-02-14",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-02-14",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-15",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-16",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-16",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-16",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-16",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-16",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-17",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-17",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-17",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2026-02-17",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-17",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-02-17",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-18",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-02-18",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-19",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-19",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-02-20",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-20",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Click",n:2},
+{d:"2026-02-20",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-02-20",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-20",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-20",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-22",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-22",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:2},
+{d:"2026-02-22",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-22",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-02-23",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-02-23",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-02-23",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-02-23",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-02-23",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-23",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-23",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Converted",n:1},
+{d:"2026-02-25",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-25",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-02-25",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:2},
+{d:"2026-02-25",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-02-26",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-26",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-02-26",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-27",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-02-27",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-27",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-02-28",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:2},
+{d:"2026-02-28",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-02-28",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-02-28",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-02-28",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-01",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-03-01",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-01",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-01",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-02",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-02",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-02",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-03",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-03",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-03-03",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-03",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-03-03",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-03",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-03-03",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-03",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-04",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-03-04",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-04",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-04",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-03-04",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-04",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-04",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-04",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-03-05",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-03-05",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-05",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-05",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-05",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-05",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-03-05",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2026-03-05",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-05",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-05",a:"Agent_Tom",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-06",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-06",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-06",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-06",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-07",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-07",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-07",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-07",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-08",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-08",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-08",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-03-08",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-08",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-08",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-03-09",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-09",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-09",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-09",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-09",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-09",a:"Agent_Tom",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2026-03-10",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-03-10",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-03-10",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-10",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-11",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-03-11",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-12",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-03-12",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-12",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-13",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-03-13",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2026-03-13",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-13",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-03-13",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-13",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-13",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-13",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-14",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-14",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-14",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-03-14",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-14",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-15",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-03-15",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-15",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-15",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-16",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-03-16",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-16",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-16",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-16",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2026-03-16",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-17",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-17",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-17",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-03-17",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-03-17",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-18",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-18",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-19",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-03-19",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-19",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-19",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-19",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-19",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-19",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-20",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-03-20",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-20",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-20",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-20",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-20",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-20",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-20",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-20",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-20",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-20",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-20",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-03-21",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:2},
+{d:"2026-03-21",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-21",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-21",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-22",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-22",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-22",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-22",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-22",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:2},
+{d:"2026-03-22",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-22",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-23",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-23",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-23",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-23",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:2},
+{d:"2026-03-23",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-23",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-03-23",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-24",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-24",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-03-24",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-24",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-24",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-24",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-25",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-25",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-25",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-25",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-25",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-25",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2026-03-25",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-26",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-03-26",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-26",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-26",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-26",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-26",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2026-03-26",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-26",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-26",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-27",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-27",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-27",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-27",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-27",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-03-27",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-27",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-27",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-27",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-03-28",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-03-28",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-28",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-03-28",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-28",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-03-28",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-28",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-03-29",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-03-29",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-29",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-29",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-03-29",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-29",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-29",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-03-29",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-29",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-03-29",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-29",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-03-29",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-29",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-30",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-03-30",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-30",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-03-30",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-03-30",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-30",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-31",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-03-31",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-03-31",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-04-01",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-04-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-04-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-01",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-04-01",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-01",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-04-01",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-02",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-02",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-02",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-03",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-03",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-03",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-03",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-03",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-03",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-03",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-03",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-04-03",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-03",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-04",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Converted",n:1},
+{d:"2026-04-04",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-04",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-04",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-04-04",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-04",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-05",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-04-05",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-05",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-05",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-05",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-05",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-06",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-06",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-07",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-07",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-07",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-08",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-08",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-08",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-04-08",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-08",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-08",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-08",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-08",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-08",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-08",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-08",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-09",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-09",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-09",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-09",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-04-10",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-04-10",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-10",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-04-10",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-10",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-10",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-11",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-11",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-11",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-11",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-11",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-11",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-04-11",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-11",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-11",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-11",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-12",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-12",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-12",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-12",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-04-12",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-12",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-12",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-13",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-13",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-04-13",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-13",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-14",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-14",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-14",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-14",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Converted",n:1},
+{d:"2026-04-14",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-14",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-04-14",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-14",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-14",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-14",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-04-14",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-14",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-14",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-14",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-04-15",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-15",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-15",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-15",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-15",a:"Agent_Tom",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-16",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-16",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-04-16",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-17",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-04-17",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-17",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-17",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-17",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-04-17",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2026-04-17",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-17",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-18",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-18",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-04-18",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-18",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-18",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-18",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-18",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-18",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-18",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-19",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-04-19",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2026-04-19",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-19",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-19",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-19",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-19",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-19",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-20",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Converted",n:1},
+{d:"2026-04-20",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-20",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-04-20",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-20",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-20",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-20",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-20",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-20",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-20",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-20",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-20",a:"Agent_Tom",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2026-04-21",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-04-21",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-21",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-21",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-22",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-22",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-22",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-22",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-22",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-22",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-22",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-23",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-23",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-23",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-23",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-23",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-23",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-24",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-24",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-24",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-25",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-25",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-25",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-25",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-26",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-26",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-26",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-26",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-26",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-04-26",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-26",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-04-26",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-04-26",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-27",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-27",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-27",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-04-27",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-27",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-27",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-27",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-27",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-28",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-28",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-28",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-28",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-04-29",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-29",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-29",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-04-29",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-29",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-04-29",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-29",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-04-29",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-04-29",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-04-30",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-30",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-04-30",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-04-30",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-05-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-01",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-01",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-01",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-01",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-01",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-01",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-02",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-02",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-02",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-02",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-02",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-02",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-05-02",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-02",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-05-02",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-03",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-05-03",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-03",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-05-04",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-04",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-05-04",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-04",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-04",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-04",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-05-04",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-05-05",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-05-05",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:2},
+{d:"2026-05-05",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-05",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-05",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-05",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-05-05",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-05-05",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-05",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-05-05",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-05-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-05",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-06",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-06",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-07",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-05-07",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-07",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-07",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-08",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-05-08",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-08",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-08",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-08",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-08",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-09",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-09",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-09",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-09",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-09",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-05-09",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-05-09",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-09",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-10",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-11",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:2},
+{d:"2026-05-11",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-05-11",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-05-11",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-11",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-05-11",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-11",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-11",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-11",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-11",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-12",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-12",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-12",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-12",a:"Agent_Lin",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-12",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-12",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-13",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-05-13",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-13",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-14",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-05-14",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-14",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-14",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-05-14",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-15",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-05-15",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-15",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-16",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-16",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-16",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-16",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-16",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-16",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-16",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-05-16",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-16",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-16",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-16",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-17",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-17",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-17",a:"Agent_Tom",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-18",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-05-18",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-18",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-18",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-19",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-20",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-05-20",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-20",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-20",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-21",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-22",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-22",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-22",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-22",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-22",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-22",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-22",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-23",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-24",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-24",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-05-24",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-24",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-24",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-05-24",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-24",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-24",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-05-25",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-25",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:2},
+{d:"2026-05-25",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-26",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-26",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-26",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-26",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-27",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-27",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-27",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-05-27",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-27",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-05-27",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-05-28",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-28",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-05-28",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-28",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-29",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-30",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-30",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-05-30",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-05-30",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-05-30",a:"Agent_Tom",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-05-31",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-31",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:2},
+{d:"2026-05-31",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-05-31",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-05-31",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-05-31",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-31",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2026-05-31",a:"Agent_Tom",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-01",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-01",a:"Agent_Dipti",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-01",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-01",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-06-01",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-01",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-01",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-06-01",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-02",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-06-02",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-02",a:"Agent_Carlos",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-02",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-02",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-02",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-02",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-02",a:"Agent_Tom",ch:"Web",p:"Home",s:"Converted",n:1},
+{d:"2026-06-03",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-06-03",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-03",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-06-03",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-03",a:"Agent_Maria",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-03",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-03",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-03",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-03",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-03",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-04",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-06-04",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-04",a:"Agent_Lin",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-04",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-06-05",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-05",a:"Agent_Carlos",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-05",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-06-05",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-06-05",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-05",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-05",a:"Agent_Tom",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-06",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-06",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-06",a:"Agent_Maria",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-06",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-06-06",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-06",a:"Agent_Sharon",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-06",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-07",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-07",a:"Agent_Dipti",ch:"Branch Visit",p:"Auto",s:"Converted",n:1},
+{d:"2026-06-07",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-06-07",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-07",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-07",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Click",n:1},
+{d:"2026-06-07",a:"Agent_Tom",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-08",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-08",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-08",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-08",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-08",a:"Agent_Tom",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-06-09",a:"Agent_Carlos",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-09",a:"Agent_Maria",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-06-09",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-09",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-09",a:"Agent_Tom",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-10",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-06-10",a:"Agent_Lin",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-06-10",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-06-10",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-10",a:"Agent_Tom",ch:"Agent Call",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-11",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-06-11",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-11",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-11",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-11",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-11",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-12",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-12",a:"Agent_Dipti",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-06-12",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-12",a:"Agent_Lin",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-12",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-12",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-12",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-06-12",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-13",a:"Agent_Carlos",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-13",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-13",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-13",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-06-13",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-13",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-13",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-13",a:"Agent_Sharon",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-14",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-06-14",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-14",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-14",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-14",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-14",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:2},
+{d:"2026-06-14",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-14",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-15",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-15",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-06-15",a:"Agent_Maria",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-16",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-16",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-06-17",a:"Agent_Carlos",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-17",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-17",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-17",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-17",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-06-17",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-17",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-18",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-18",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-18",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-18",a:"Agent_Lin",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-06-18",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-18",a:"Agent_Maria",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-18",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-19",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-19",a:"Agent_Dipti",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-19",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-19",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-19",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-19",a:"Agent_Lin",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-19",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-20",a:"Agent_Carlos",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-20",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-06-20",a:"Agent_Lin",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-20",a:"Agent_Lin",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-20",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-06-20",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-20",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-20",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Converted",n:1},
+{d:"2026-06-20",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-20",a:"Agent_Sharon",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2026-06-20",a:"Agent_Sharon",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-20",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-21",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-21",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-21",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-06-21",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-21",a:"Agent_Dipti",ch:"Web",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-21",a:"Agent_Lin",ch:"Web",p:"Home",s:"Click",n:1},
+{d:"2026-06-21",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-21",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-21",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-21",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-22",a:"Agent_Carlos",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-06-22",a:"Agent_Dipti",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-06-22",a:"Agent_Lin",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-22",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-22",a:"Agent_Maria",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2026-06-22",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-22",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-22",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-22",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-06-22",a:"Agent_Tom",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-23",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-23",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Impression",n:1},
+{d:"2026-06-23",a:"Agent_Maria",ch:"Web",p:"Home",s:"Impression",n:1},
+{d:"2026-06-23",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-23",a:"Agent_Sharon",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-23",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-23",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Click",n:1},
+{d:"2026-06-23",a:"Agent_Tom",ch:"Web",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-24",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Impression",n:2},
+{d:"2026-06-24",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Converted",n:1},
+{d:"2026-06-24",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Click",n:1},
+{d:"2026-06-24",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Click",n:1},
+{d:"2026-06-24",a:"Agent_Tom",ch:"Branch Visit",p:"Home",s:"Impression",n:1},
+{d:"2026-06-25",a:"Agent_Carlos",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-25",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-25",a:"Agent_Dipti",ch:"Web",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-25",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Click",n:1},
+{d:"2026-06-25",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Click",n:1},
+{d:"2026-06-25",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-25",a:"Agent_Sharon",ch:"Agent Call",p:"Home",s:"Impression",n:1},
+{d:"2026-06-25",a:"Agent_Sharon",ch:"Branch Visit",p:"Auto",s:"Impression",n:1},
+{d:"2026-06-26",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Click",n:1},
+{d:"2026-06-27",a:"Agent_Maria",ch:"Mobile App",p:"Home",s:"Quote_Started",n:1},
+{d:"2026-06-27",a:"Agent_Sharon",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-06-28",a:"Agent_Dipti",ch:"Agent Call",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-28",a:"Agent_Maria",ch:"Branch Visit",p:"Auto",s:"Quote_Started",n:1},
+{d:"2026-06-30",a:"Agent_Tom",ch:"Agent Call",p:"Auto",s:"Converted",n:1},
+{d:"2026-07-01",a:"Agent_Maria",ch:"Mobile App",p:"Auto",s:"Quote_Started",n:1}
+];
+
+let gran = 'month', breakdown = 'none';
+let timeChart, funnelChart, breakChart;
+let sparkCharts = {imp:null, clk:null, qst:null, cvt:null};
+const PALETTE = ['#2563eb','#7c3aed','#0891b2','#059669','#d97706','#dc2626','#0d9488','#9333ea'];
+const DIM_FIELD  = {agent:'a', channel:'ch', policy:'p'};
+const DIM_LABELS = {agent:'Agent', channel:'Channel', policy:'Policy Type'};
+const GRID = '#e0e5f0';
+const SPARK_COLORS = {imp:'#2563eb', clk:'#7c3aed', qst:'#0891b2', cvt:'#059669'};
+const SPARK_FILLS  = {imp:'rgba(37,99,235,.12)', clk:'rgba(124,58,237,.12)', qst:'rgba(8,145,178,.12)', cvt:'rgba(5,150,105,.12)'};
+
+function makeSparkline(id, data, color, fill) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  return new Chart(el, {
+    type: 'line',
+    data: { labels: data.map((_,i)=>i), datasets:[{
+      data, borderColor: color, backgroundColor: fill,
+      fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0.4
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend:{display:false}, tooltip:{enabled:false} },
+      scales: { x:{display:false}, y:{display:false, beginAtZero:true} }
+    }
+  });
+}
+
+function legendHighlightClick(e, legendItem, legend) {
+  const chart = legend.chart;
+  const idx = legendItem.datasetIndex;
+  const n = chart.data.datasets.length;
+  const isFocused = [...Array(n).keys()].filter(i=>i!==idx).every(i=>chart.getDatasetMeta(i).hidden);
+  for (let i=0; i<n; i++) chart.getDatasetMeta(i).hidden = isFocused ? false : i!==idx;
+  chart.update();
+}
+
+/* ── Dropdown helpers ── */
+function toggleDD(name) {
+  const wrap = document.getElementById('dd-'+name);
+  const was = wrap.classList.contains('open');
+  document.querySelectorAll('.dd-wrap').forEach(w => w.classList.remove('open'));
+  if (!was) wrap.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dd-wrap')) document.querySelectorAll('.dd-wrap').forEach(w => w.classList.remove('open'));
+});
+
+function toggleAll(name, checked) {
+  document.querySelectorAll('.cb-'+name).forEach(cb => cb.checked = checked);
+  syncAllChk(name);
+  updateBtn(name);
+  update();
+}
+
+function filterChanged(name) {
+  syncAllChk(name);
+  updateBtn(name);
+  update();
+}
+
+function syncAllChk(name) {
+  const cbs = [...document.querySelectorAll('.cb-'+name)];
+  document.getElementById('all-'+name).checked = cbs.every(cb => cb.checked);
+}
+
+function updateBtn(name) {
+  const cbs  = [...document.querySelectorAll('.cb-'+name)];
+  const sel  = cbs.filter(cb => cb.checked).map(cb => cb.value);
+  const btn  = document.querySelector('#dd-'+name+' .dd-toggle');
+  const all  = {agent:'All Agents', channel:'All Channels', policy:'All Policies'};
+  const sg   = {agent:'Agent', channel:'Channel', policy:'Policy'};
+  let txt;
+  if (sel.length === cbs.length) txt = all[name];
+  else if (sel.length === 0)     txt = 'None';
+  else if (sel.length === 1)     txt = sel[0].replace('Agent_','');
+  else                           txt = sel.length+' '+sg[name]+'s';
+  btn.innerHTML = txt+' <span class="caret">▾</span>';
+}
+
+function getSelected(name) {
+  const all = [...document.querySelectorAll('.cb-'+name)];
+  const sel = all.filter(cb => cb.checked).map(cb => cb.value);
+  return sel.length === all.length ? null : sel;
+}
+
+/* ── Core helpers ── */
+function filterData() {
+  const a  = getSelected('agent'), ch = getSelected('channel'), p = getSelected('policy');
+  const df = document.getElementById('date-from').value;
+  const dt = document.getElementById('date-to').value;
+  return RAW.filter(r =>
+    (!a||a.includes(r.a)) && (!ch||ch.includes(r.ch)) && (!p||p.includes(r.p)) &&
+    (!df||r.d>=df) && (!dt||r.d<=dt)
+  );
+}
+
+function bucketKey(d) {
+  if (gran==='day')   return d;
+  if (gran==='month') return d.slice(0,7);
+  return d.slice(0,4);
+}
+
+function fmt(n) {
+  if (n>=1e6) return (n/1e6).toFixed(1)+'M';
+  if (n>=1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toString();
+}
+function pct(a,b)    { return b>0?(a/b*100).toFixed(1)+'%':'—'; }
+function pctNum(a,b) { return b>0?+(a/b*100).toFixed(2):0; }
+
+/* ── Main render ── */
+function update() {
+  const rows = filterData();
+
+  /* KPI totals */
+  const tot = {Impression:0,Click:0,Quote_Started:0,Converted:0};
+  rows.forEach(r => tot[r.s] = (tot[r.s]||0)+r.n);
+  document.getElementById('kpi-imp').textContent = fmt(tot.Impression);
+  document.getElementById('kpi-clk').textContent = fmt(tot.Click);
+  document.getElementById('kpi-qst').textContent = fmt(tot.Quote_Started);
+  document.getElementById('kpi-cvt').textContent = fmt(tot.Converted);
+  document.getElementById('kpi-imp-d').textContent = '';
+  document.getElementById('kpi-clk-d').textContent = 'CTR: '+pct(tot.Click,tot.Impression);
+  document.getElementById('kpi-qst-d').textContent = 'Quote rate: '+pct(tot.Quote_Started,tot.Click);
+  document.getElementById('kpi-cvt-d').textContent = 'Conv. rate: '+pct(tot.Converted,tot.Impression);
+
+  /* KPI trends — compare second half of selected date range vs first half */
+  const uDates = [...new Set(rows.map(r=>r.d))].sort();
+  const mid    = Math.floor(uDates.length/2);
+  const prior  = new Set(uDates.slice(0, mid));
+  const curr   = new Set(uDates.slice(mid));
+  const pTot   = {Impression:0,Click:0,Quote_Started:0,Converted:0};
+  const cTot   = {Impression:0,Click:0,Quote_Started:0,Converted:0};
+  rows.forEach(r => {
+    if (prior.has(r.d)) pTot[r.s] = (pTot[r.s]||0)+r.n;
+    if (curr.has(r.d))  cTot[r.s] = (cTot[r.s]||0)+r.n;
+  });
+  function trendHtml(c, p) {
+    if (!p || mid < 2) return '';
+    const chg = p > 0 ? (c-p)/p*100 : 0;
+    const dir = chg >= 0 ? 'up' : 'dn';
+    const ico = chg >= 0 ? '▲' : '▼';
+    return `<span class="trend-${dir}">${ico} ${Math.abs(chg).toFixed(1)}%</span> vs prior half`;
+  }
+  const pCvr = pctNum(pTot.Converted,pTot.Impression);
+  const cCvr = pctNum(cTot.Converted,cTot.Impression);
+  const cvrChg = pCvr > 0 ? (cCvr-pCvr)/pCvr*100 : 0;
+  const cvrDir = cvrChg >= 0 ? 'up' : 'dn';
+  document.getElementById('kpi-imp-t').innerHTML = trendHtml(cTot.Impression, pTot.Impression);
+  document.getElementById('kpi-clk-t').innerHTML = trendHtml(cTot.Click,       pTot.Click);
+  document.getElementById('kpi-qst-t').innerHTML = trendHtml(cTot.Quote_Started,pTot.Quote_Started);
+  document.getElementById('kpi-cvt-t').innerHTML = mid >= 2
+    ? `<span class="trend-${cvrDir}">${cvrChg>=0?'▲':'▼'} ${Math.abs(cvrChg).toFixed(1)}%</span> conv rate vs prior half`
+    : '';
+
+  /* time-bucket map */
+  const tmap = {};
+  rows.forEach(r => {
+    const k = bucketKey(r.d);
+    if (!tmap[k]) tmap[k] = {Impression:0,Click:0,Quote_Started:0,Converted:0};
+    tmap[k][r.s] = (tmap[k][r.s]||0)+r.n;
+  });
+  const tkeys = Object.keys(tmap).sort();
+
+  /* ── Sparklines ── */
+  Object.keys(sparkCharts).forEach(k => { if (sparkCharts[k]) { sparkCharts[k].destroy(); sparkCharts[k] = null; } });
+  const SFIELD = {imp:'Impression', clk:'Click', qst:'Quote_Started', cvt:'Converted'};
+  Object.keys(SFIELD).forEach(k => {
+    sparkCharts[k] = makeSparkline('spark-'+k, tkeys.map(t=>tmap[t][SFIELD[k]]||0), SPARK_COLORS[k], SPARK_FILLS[k]);
+  });
+
+  /* ── Time chart ── */
+  const bdLabel = breakdown==='none' ? '' : ' — by '+DIM_LABELS[breakdown];
+  document.getElementById('time-title').textContent = breakdown==='none' ? 'Volume Over Time' : 'Conv. Rate % Over Time'+bdLabel;
+  document.getElementById('time-sub').textContent   = breakdown==='none'
+    ? 'Funnel stage counts with conv. rate overlay'
+    : 'Each line = one '+DIM_LABELS[breakdown].toLowerCase()+' group';
+
+  if (timeChart) timeChart.destroy();
+  if (breakdown === 'none') {
+    const imp = tkeys.map(k=>tmap[k].Impression||0);
+    const clk = tkeys.map(k=>tmap[k].Click||0);
+    const qst = tkeys.map(k=>tmap[k].Quote_Started||0);
+    const cvt = tkeys.map(k=>tmap[k].Converted||0);
+    const cvr = imp.map((v,i)=>pctNum(cvt[i],v));
+    timeChart = new Chart(document.getElementById('timeChart'), {
+      data:{ labels:tkeys, datasets:[
+        {type:'bar',  label:'Impressions',    data:imp, backgroundColor:'rgba(37,99,235,.55)',  yAxisID:'y'},
+        {type:'bar',  label:'Clicks',         data:clk, backgroundColor:'rgba(124,58,237,.55)', yAxisID:'y'},
+        {type:'bar',  label:'Quotes Started', data:qst, backgroundColor:'rgba(8,145,178,.55)',  yAxisID:'y'},
+        {type:'bar',  label:'Conversions',    data:cvt, backgroundColor:'rgba(5,150,105,.55)',  yAxisID:'y'},
+        {type:'line', label:'Conv. Rate %',   data:cvr, borderColor:'#f59e0b', backgroundColor:'transparent',
+          borderWidth:2.5, pointRadius:gran==='day'?0:3, tension:0.35, yAxisID:'y2'}
+      ]},
+      options:{ responsive:true, interaction:{mode:'index',intersect:false},
+        plugins:{ legend:{position:'bottom',labels:{boxWidth:12,font:{size:12}},onClick:legendHighlightClick} },
+        scales:{
+          x:{ ticks:{maxRotation:45,font:{size:gran==='day'?9:11}}, grid:{color:GRID} },
+          y:{ position:'left',  grid:{color:GRID}, ticks:{font:{size:11}}, title:{display:true,text:'Volume',font:{size:11}} },
+          y2:{ position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>v+'%',font:{size:11}},
+            title:{display:true,text:'Conv. Rate %',font:{size:11}}, suggestedMin:0, suggestedMax:20 }
+        }
+      }
+    });
+  } else {
+    const df      = DIM_FIELD[breakdown];
+    const dimVals = [...new Set(rows.map(r=>r[df]))].sort();
+    const datasets = dimVals.map((dv,i) => {
+      const dm = {};
+      rows.filter(r=>r[df]===dv).forEach(r => {
+        const k = bucketKey(r.d);
+        if (!dm[k]) dm[k] = {Impression:0,Converted:0};
+        if (r.s==='Impression') dm[k].Impression += r.n;
+        if (r.s==='Converted')  dm[k].Converted  += r.n;
+      });
+      return { type:'line', label: dv.replace('Agent_',''),
+        data: tkeys.map(k => pctNum(dm[k]?.Converted||0, dm[k]?.Impression||0)),
+        borderColor: PALETTE[i%PALETTE.length], backgroundColor:'transparent',
+        borderWidth:2.5, pointRadius:gran==='day'?0:3, tension:0.35 };
+    });
+    timeChart = new Chart(document.getElementById('timeChart'), {
+      data:{ labels:tkeys, datasets },
+      options:{ responsive:true, interaction:{mode:'index',intersect:false},
+        plugins:{ legend:{position:'bottom',labels:{boxWidth:12,font:{size:12}},onClick:legendHighlightClick} },
+        scales:{
+          x:{ ticks:{maxRotation:45,font:{size:gran==='day'?9:11}}, grid:{color:GRID} },
+          y:{ grid:{color:GRID}, ticks:{callback:v=>v+'%',font:{size:11}},
+            title:{display:true,text:'Conv. Rate %',font:{size:11}}, suggestedMin:0 }
+        }
+      }
+    });
+  }
+
+  /* ── Funnel chart ── */
+  document.getElementById('funnel-sub').textContent = breakdown==='none'
+    ? 'Stage-by-stage volume'
+    : 'Grouped by '+DIM_LABELS[breakdown].toLowerCase();
+  if (funnelChart) funnelChart.destroy();
+  if (breakdown === 'none') {
+    const funnel = [tot.Impression,tot.Click,tot.Quote_Started,tot.Converted];
+    funnelChart = new Chart(document.getElementById('funnelChart'), {
+      type:'bar',
+      data:{ labels:['Impression','Click','Quote Started','Converted'],
+        datasets:[{ label:'Count', data:funnel,
+          backgroundColor:['rgba(37,99,235,.7)','rgba(124,58,237,.7)','rgba(8,145,178,.7)','rgba(5,150,105,.7)'],
+          borderRadius:4 }]
+      },
+      options:{ indexAxis:'y', responsive:true,
+        plugins:{ legend:{display:false},
+          tooltip:{callbacks:{label:ctx=>` ${ctx.raw.toLocaleString()} (${tot.Impression>0?(ctx.raw/tot.Impression*100).toFixed(1):'0'}% of impr.)`}}
+        },
+        scales:{ x:{grid:{color:GRID},ticks:{font:{size:11}}}, y:{grid:{display:false},ticks:{font:{size:12}}} }
+      }
+    });
+  } else {
+    const df      = DIM_FIELD[breakdown];
+    const dimVals = [...new Set(rows.map(r=>r[df]))].sort();
+    const STAGES  = ['Impression','Click','Quote_Started','Converted'];
+    const SLABELS = ['Impression','Click','Quote Started','Converted'];
+    const grp = {};
+    dimVals.forEach(dv => { grp[dv] = {Impression:0,Click:0,Quote_Started:0,Converted:0}; });
+    rows.forEach(r => { if(grp[r[df]]) grp[r[df]][r.s] = (grp[r[df]][r.s]||0)+r.n; });
+    funnelChart = new Chart(document.getElementById('funnelChart'), {
+      type:'bar',
+      data:{ labels:SLABELS,
+        datasets: dimVals.map((dv,i) => ({
+          label: dv.replace('Agent_',''),
+          data: STAGES.map(s=>grp[dv][s]||0),
+          backgroundColor: PALETTE[i%PALETTE.length]+'bb', borderRadius:3
+        }))
+      },
+      options:{ indexAxis:'y', responsive:true,
+        plugins:{ legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}},onClick:legendHighlightClick} },
+        scales:{ x:{grid:{color:GRID},ticks:{font:{size:11}}}, y:{grid:{display:false},ticks:{font:{size:11}}} }
+      }
+    });
+  }
+
+  /* ── Breakdown comparison bar chart ── */
+  const brow = document.getElementById('breakdown-row');
+  if (breakdown === 'none') {
+    brow.classList.remove('visible');
+    if (breakChart) { breakChart.destroy(); breakChart = null; }
+  } else {
+    brow.classList.add('visible');
+    const df      = DIM_FIELD[breakdown];
+    const dimVals = [...new Set(rows.map(r=>r[df]))].sort();
+    const grp = {};
+    dimVals.forEach(dv => { grp[dv] = {Impression:0,Click:0,Quote_Started:0,Converted:0}; });
+    rows.forEach(r => { if(grp[r[df]]) grp[r[df]][r.s] = (grp[r[df]][r.s]||0)+r.n; });
+    const labels = dimVals.map(dv => dv.replace('Agent_',''));
+    document.getElementById('breakdown-title').textContent = DIM_LABELS[breakdown]+' Comparison';
+    document.getElementById('breakdown-sub').textContent   = 'Impressions, conversions and conv. rate by '+DIM_LABELS[breakdown].toLowerCase();
+    if (breakChart) breakChart.destroy();
+    breakChart = new Chart(document.getElementById('breakChart'), {
+      data:{ labels,
+        datasets:[
+          {type:'bar',  label:'Impressions', data:dimVals.map(dv=>grp[dv].Impression), backgroundColor:'rgba(37,99,235,.55)', yAxisID:'y'},
+          {type:'bar',  label:'Conversions', data:dimVals.map(dv=>grp[dv].Converted),  backgroundColor:'rgba(5,150,105,.55)', yAxisID:'y'},
+          {type:'line', label:'Conv. Rate %',
+            data:dimVals.map(dv=>pctNum(grp[dv].Converted,grp[dv].Impression)),
+            borderColor:'#f59e0b', backgroundColor:'transparent',
+            borderWidth:2.5, pointRadius:5, tension:0.2, yAxisID:'y2'}
+        ]
+      },
+      options:{ responsive:true, interaction:{mode:'index',intersect:false},
+        plugins:{ legend:{position:'bottom',labels:{boxWidth:12,font:{size:12}},onClick:legendHighlightClick} },
+        scales:{
+          x:{ grid:{color:GRID}, ticks:{font:{size:12}} },
+          y:{ position:'left',  grid:{color:GRID}, ticks:{font:{size:11}}, title:{display:true,text:'Volume',font:{size:11}} },
+          y2:{ position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>v+'%',font:{size:11}},
+            title:{display:true,text:'Conv. Rate %',font:{size:11}}, suggestedMin:0 }
+        }
+      }
+    });
+  }
+}
+
+function setGran(g) {
+  gran = g;
+  ['day','month','year'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x===g));
+  update();
+}
+
+function setBreak(b) {
+  breakdown = b;
+  document.querySelectorAll('#break-btns button').forEach((btn,i) => {
+    btn.classList.toggle('active', ['none','agent','channel','policy'][i]===b);
+  });
+  update();
+}
+
+function resetAll() {
+  ['agent','channel','policy'].forEach(name => {
+    document.querySelectorAll('.cb-'+name).forEach(cb => cb.checked = true);
+    document.getElementById('all-'+name).checked = true;
+    updateBtn(name);
+  });
+  document.getElementById('date-from').value = '2025-08-31';
+  document.getElementById('date-to').value   = '2026-07-01';
+  setGran('month');
+  setBreak('none');
+}
+
+update();
+</script>
+</body>
+</html>
