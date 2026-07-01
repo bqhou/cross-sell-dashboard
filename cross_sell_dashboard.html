@@ -79,9 +79,20 @@
     .charts-main { grid-template-columns: 1fr; }
     .main { padding: 16px; }
   }
+  .nav { background: #1a2233; display: flex; align-items: center; gap: 2px; padding: 0 20px; }
+  .nav a { display: inline-block; padding: 11px 18px; font-size: 13px; font-weight: 600; color: #9aa3bc; text-decoration: none; border-bottom: 3px solid transparent; transition: all .15s; white-space: nowrap; }
+  .nav a:hover { color: #fff; background: rgba(255,255,255,.06); }
+  .nav a.active { color: #fff; border-bottom-color: #2563eb; }
+  .nav .nav-logo { font-size: 14px; font-weight: 700; color: #fff; padding: 11px 18px 11px 4px; margin-right: 8px; border-right: 1px solid #2d3a50; }
 </style>
 </head>
 <body>
+<nav class="nav">
+  <span class="nav-logo">Analytics Hub</span>
+  <a href="cross_sell_dashboard.html" class="active">Cross-Sell</a>
+  <a href="customers_dashboard.html">Customers</a>
+  <a href="policies_dashboard.html">Policies</a>
+</nav>
 <div class="header">
   <div>
     <div class="header-title">Cross-Sell Performance Dashboard</div>

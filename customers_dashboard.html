@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customers Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e4e8f0; color: #1a2233; }
+
+  /* Nav */
+  .nav { background: #1a2233; display: flex; align-items: center; gap: 2px; padding: 0 20px; }
+  .nav a { display: inline-block; padding: 11px 18px; font-size: 13px; font-weight: 600; color: #9aa3bc; text-decoration: none; border-bottom: 3px solid transparent; transition: all .15s; white-space: nowrap; }
+  .nav a:hover { color: #fff; background: rgba(255,255,255,.06); }
+  .nav a.active { color: #fff; border-bottom-color: #2563eb; }
+  .nav .nav-logo { font-size: 14px; font-weight: 700; color: #fff; padding: 11px 18px 11px 4px; margin-right: 8px; border-right: 1px solid #2d3a50; }
+
+  .header { background: #fff; border-bottom: 1px solid #d6daea; padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .header-title { font-size: 19px; font-weight: 700; color: #1a2233; }
+  .header-sub { font-size: 12px; color: #7a85a3; margin-top: 3px; }
+  .main { padding: 20px 28px; display: flex; flex-direction: column; gap: 18px; }
+
+  .filters { background: #fff; border: 1px solid #d6daea; border-radius: 12px; padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .filter-group { display: flex; flex-direction: column; gap: 5px; }
+  .filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #7a85a3; }
+
+  .seg-btns { display: flex; }
+  .seg-btns button { padding: 6px 14px; font-size: 12px; font-weight: 500; border: 1px solid #c8cedf; background: #fff; color: #4a5578; cursor: pointer; transition: all .12s; white-space: nowrap; }
+  .seg-btns button:first-child { border-radius: 7px 0 0 7px; }
+  .seg-btns button:last-child  { border-radius: 0 7px 7px 0; }
+  .seg-btns button:not(:first-child) { border-left: none; }
+  .seg-btns button.active { background: #2563eb; color: #fff; border-color: #2563eb; z-index: 1; }
+  .seg-btns button:hover:not(.active) { background: #f0f3fb; }
+
+  .dd-wrap { position: relative; }
+  .dd-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 148px; padding: 6px 12px; border: 1px solid #c8cedf; border-radius: 7px; background: #fff; color: #1a2233; font-size: 13px; cursor: pointer; transition: border-color .12s; }
+  .dd-toggle:hover, .dd-wrap.open .dd-toggle { border-color: #2563eb; }
+  .dd-toggle .caret { font-size: 10px; color: #7a85a3; transition: transform .15s; }
+  .dd-wrap.open .caret { transform: rotate(180deg); }
+  .dd-panel { position: absolute; top: calc(100% + 5px); left: 0; min-width: 180px; background: #fff; border: 1px solid #c8cedf; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12); z-index: 500; display: none; padding: 6px 0; }
+  .dd-wrap.open .dd-panel { display: block; }
+  .dd-item { display: flex; align-items: center; gap: 9px; padding: 7px 14px; cursor: pointer; font-size: 13px; color: #2d3556; transition: background .1s; user-select: none; }
+  .dd-item:hover { background: #f0f3fb; }
+  .dd-item.all-item { font-weight: 600; color: #2563eb; border-bottom: 1px solid #e8ecf4; margin-bottom: 2px; padding-bottom: 9px; }
+  .dd-item input[type=checkbox] { accent-color: #2563eb; width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+
+  .btn-reset { padding: 6px 14px; border: 1px solid #c8cedf; border-radius: 7px; background: #fff; color: #4a5578; font-size: 12px; cursor: pointer; transition: all .12s; white-space: nowrap; }
+  .btn-reset:hover { background: #fef2f2; border-color: #e57373; color: #c0392b; }
+
+  .kpis { display: flex; gap: 14px; }
+  .kpi { background: #fff; border: 1px solid #d6daea; border-radius: 12px; padding: 18px 22px; box-shadow: 0 1px 3px rgba(0,0,0,.05); min-width: 240px; max-width: 320px; }
+  .kpi .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #7a85a3; margin-bottom: 7px; }
+  .kpi .value { font-size: 30px; font-weight: 700; color: #1a2233; letter-spacing: -0.5px; }
+  .kpi .trend { font-size: 11px; margin-top: 4px; color: #7a85a3; }
+  .trend-up { color: #059669; font-weight: 700; }
+  .trend-dn { color: #dc2626; font-weight: 700; }
+  .kpi.tot { border-top: 3px solid #2563eb; }
+  .spark-wrap { margin: 8px 0 2px; height: 44px; position: relative; }
+  .spark-wrap canvas { display: block; width: 100% !important; height: 44px !important; }
+
+  /* Product mix card: pie + table side by side */
+  .product-row { display: flex; align-items: center; gap: 20px; margin-top: 4px; }
+  .pie-wrap { flex: 0 0 150px; height: 150px; }
+  .product-tbl { flex: 1; border-collapse: collapse; font-size: 13px; }
+  .product-tbl th { text-align: left; padding: 5px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #7a85a3; border-bottom: 2px solid #e8ecf4; }
+  .product-tbl td { padding: 8px 8px; border-bottom: 1px solid #f0f3fb; color: #2d3556; }
+  .product-tbl tr.total-row td { font-weight: 700; border-top: 2px solid #d6daea; border-bottom: none; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+  .charts-top { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  .charts-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-card { background: #fff; border: 1px solid #d6daea; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .chart-card h2 { font-size: 14px; font-weight: 700; color: #1a2233; margin-bottom: 3px; }
+  .chart-card .chart-sub { font-size: 12px; color: #9aa3bc; margin-bottom: 14px; }
+  canvas { max-height: 300px; }
+
+  .date-range { display: flex; align-items: center; gap: 6px; }
+  .date-input { padding: 6px 10px; border: 1px solid #c8cedf; border-radius: 7px; background: #fff; font-size: 13px; color: #1a2233; cursor: pointer; outline: none; font-family: inherit; }
+  .date-input:focus { border-color: #2563eb; }
+  .date-sep { font-size: 12px; color: #9aa3bc; }
+
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .charts-top, .charts-bottom { grid-template-columns: 1fr; }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">Analytics Hub</span>
+  <a href="cross_sell_dashboard.html">Cross-Sell</a>
+  <a href="customers_dashboard.html" class="active">Customers</a>
+  <a href="policies_dashboard.html">Policies</a>
+</nav>
+
+<div class="header">
+  <div>
+    <div class="header-title">Customer Dashboard</div>
+    <div class="header-sub">Customer signups &amp; demographics · Jan 2024 – May 2026</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="filters">
+    <div class="filter-group">
+      <span class="filter-label">Date Range</span>
+      <div class="date-range">
+        <input type="date" id="date-from" class="date-input" value="2024-01-01" min="2024-01-01" max="2026-05-31" onchange="update()">
+        <span class="date-sep">→</span>
+        <input type="date" id="date-to" class="date-input" value="2026-05-31" min="2024-01-01" max="2026-05-31" onchange="update()">
+      </div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Date by</span>
+      <div class="seg-btns">
+        <button id="btn-day" onclick="setGran('day')">Day</button>
+        <button id="btn-month" class="active" onclick="setGran('month')">Month</button>
+        <button id="btn-year" onclick="setGran('year')">Year</button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">State</span>
+      <div class="dd-wrap" id="dd-state">
+        <button class="dd-toggle" onclick="toggleDD('state')"><span id="state-label">All States</span> <span class="caret">▾</span></button>
+        <div class="dd-panel">
+          <label class="dd-item all-item"><input type="checkbox" id="all-state" checked onchange="toggleAll('state',this.checked)"> All</label>
+          <label class="dd-item"><input type="checkbox" class="cb-state" value="CT" checked onchange="filterChanged('state')"> CT</label>
+          <label class="dd-item"><input type="checkbox" class="cb-state" value="MA" checked onchange="filterChanged('state')"> MA</label>
+          <label class="dd-item"><input type="checkbox" class="cb-state" value="ME" checked onchange="filterChanged('state')"> ME</label>
+          <label class="dd-item"><input type="checkbox" class="cb-state" value="NH" checked onchange="filterChanged('state')"> NH</label>
+          <label class="dd-item"><input type="checkbox" class="cb-state" value="NY" checked onchange="filterChanged('state')"> NY</label>
+          <label class="dd-item"><input type="checkbox" class="cb-state" value="RI" checked onchange="filterChanged('state')"> RI</label>
+          <label class="dd-item"><input type="checkbox" class="cb-state" value="VT" checked onchange="filterChanged('state')"> VT</label>
+        </div>
+      </div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Agent</span>
+      <div class="dd-wrap" id="dd-agent">
+        <button class="dd-toggle" onclick="toggleDD('agent')"><span id="agent-label">All Agents</span> <span class="caret">▾</span></button>
+        <div class="dd-panel">
+          <label class="dd-item all-item"><input type="checkbox" id="all-agent" checked onchange="toggleAll('agent',this.checked)"> All</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Carlos" checked onchange="filterChanged('agent')"> Carlos</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Dipti" checked onchange="filterChanged('agent')"> Dipti</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Lin" checked onchange="filterChanged('agent')"> Lin</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Maria" checked onchange="filterChanged('agent')"> Maria</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Sharon" checked onchange="filterChanged('agent')"> Sharon</label>
+          <label class="dd-item"><input type="checkbox" class="cb-agent" value="Tom" checked onchange="filterChanged('agent')"> Tom</label>
+        </div>
+      </div>
+    </div>
+    <div class="filter-group" style="margin-left:auto">
+      <span class="filter-label">&nbsp;</span>
+      <button class="btn-reset" onclick="resetFilters()">Reset</button>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi tot"><div class="label">Total Customers</div><div class="value" id="kpi-total">—</div><div class="spark-wrap"><canvas id="spark-total"></canvas></div><div class="trend" id="kpi-total-trend"></div></div>
+  </div>
+
+  <div class="charts-top">
+    <div class="chart-card">
+      <h2>New Customers Over Time</h2>
+      <div class="chart-sub">Signups by selected time granularity</div>
+      <canvas id="chart-time"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Product Mix</h2>
+      <div class="chart-sub">% of customers by policy type held</div>
+      <div class="product-row">
+        <div class="pie-wrap"><canvas id="chart-product"></canvas></div>
+        <table class="product-tbl">
+          <thead><tr><th>Product</th><th>Customers</th><th>Share</th></tr></thead>
+          <tbody id="product-tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-bottom">
+    <div class="chart-card">
+      <h2>Age Distribution</h2>
+      <div class="chart-sub">Customers grouped in 10-year buckets</div>
+      <canvas id="chart-age"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Customers by Agent</h2>
+      <div class="chart-sub">Signup count per primary agent</div>
+      <canvas id="chart-agent"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const CUSTOMERS = [
+{id:229,d:"2024-01-08",st:"ME",age:60,ag:"Dipti"},
+{id:899,d:"2024-01-08",st:"CT",age:23,ag:"Sharon"},
+{id:837,d:"2024-01-09",st:"NH",age:41,ag:"Carlos"},
+{id:1144,d:"2024-01-09",st:"ME",age:68,ag:"Tom"},
+{id:155,d:"2024-01-10",st:"MA",age:68,ag:"Tom"},
+{id:14,d:"2024-01-11",st:"CT",age:60,ag:"Tom"},
+{id:1497,d:"2024-01-11",st:"RI",age:73,ag:"Dipti"},
+{id:393,d:"2024-01-12",st:"NY",age:57,ag:"Tom"},
+{id:1201,d:"2024-01-12",st:"NY",age:46,ag:"Tom"},
+{id:344,d:"2024-01-13",st:"RI",age:28,ag:"Maria"},
+{id:460,d:"2024-01-13",st:"VT",age:45,ag:"Dipti"},
+{id:893,d:"2024-01-13",st:"RI",age:63,ag:"Tom"},
+{id:995,d:"2024-01-13",st:"RI",age:61,ag:"Sharon"},
+{id:1349,d:"2024-01-13",st:"NH",age:75,ag:"Carlos"},
+{id:546,d:"2024-01-14",st:"NY",age:28,ag:"Maria"},
+{id:1260,d:"2024-01-14",st:"MA",age:41,ag:"Lin"},
+{id:1427,d:"2024-01-14",st:"NH",age:28,ag:"Lin"},
+{id:30,d:"2024-01-15",st:"NY",age:71,ag:"Dipti"},
+{id:1006,d:"2024-01-16",st:"RI",age:61,ag:"Dipti"},
+{id:51,d:"2024-01-17",st:"ME",age:54,ag:"Maria"},
+{id:1011,d:"2024-01-18",st:"RI",age:53,ag:"Sharon"},
+{id:1142,d:"2024-01-19",st:"ME",age:22,ag:"Tom"},
+{id:1202,d:"2024-01-19",st:"NY",age:33,ag:"Sharon"},
+{id:908,d:"2024-01-20",st:"MA",age:43,ag:"Maria"},
+{id:1477,d:"2024-01-20",st:"VT",age:52,ag:"Maria"},
+{id:1266,d:"2024-01-21",st:"CT",age:58,ag:"Dipti"},
+{id:1311,d:"2024-01-21",st:"MA",age:37,ag:"Dipti"},
+{id:758,d:"2024-01-22",st:"RI",age:72,ag:"Lin"},
+{id:1207,d:"2024-01-22",st:"NY",age:53,ag:"Maria"},
+{id:578,d:"2024-01-23",st:"NH",age:57,ag:"Carlos"},
+{id:23,d:"2024-01-24",st:"CT",age:32,ag:"Tom"},
+{id:126,d:"2024-01-24",st:"CT",age:59,ag:"Maria"},
+{id:903,d:"2024-01-24",st:"NY",age:46,ag:"Carlos"},
+{id:551,d:"2024-01-27",st:"ME",age:71,ag:"Maria"},
+{id:972,d:"2024-01-27",st:"ME",age:31,ag:"Tom"},
+{id:1404,d:"2024-01-27",st:"VT",age:34,ag:"Tom"},
+{id:184,d:"2024-01-28",st:"VT",age:50,ag:"Sharon"},
+{id:567,d:"2024-01-28",st:"RI",age:27,ag:"Sharon"},
+{id:599,d:"2024-01-28",st:"NY",age:65,ag:"Lin"},
+{id:420,d:"2024-01-29",st:"NY",age:57,ag:"Sharon"},
+{id:1021,d:"2024-01-29",st:"ME",age:70,ag:"Sharon"},
+{id:235,d:"2024-01-30",st:"RI",age:67,ag:"Sharon"},
+{id:540,d:"2024-01-30",st:"ME",age:65,ag:"Maria"},
+{id:744,d:"2024-01-31",st:"VT",age:39,ag:"Maria"},
+{id:888,d:"2024-01-31",st:"NY",age:27,ag:"Carlos"},
+{id:770,d:"2024-02-01",st:"RI",age:54,ag:"Tom"},
+{id:239,d:"2024-02-02",st:"ME",age:59,ag:"Tom"},
+{id:652,d:"2024-02-04",st:"VT",age:26,ag:"Sharon"},
+{id:1018,d:"2024-02-04",st:"CT",age:56,ag:"Dipti"},
+{id:1305,d:"2024-02-04",st:"RI",age:69,ag:"Lin"},
+{id:272,d:"2024-02-06",st:"MA",age:47,ag:"Lin"},
+{id:332,d:"2024-02-07",st:"MA",age:40,ag:"Carlos"},
+{id:901,d:"2024-02-07",st:"RI",age:26,ag:"Tom"},
+{id:827,d:"2024-02-09",st:"CT",age:37,ag:"Tom"},
+{id:1271,d:"2024-02-09",st:"VT",age:48,ag:"Maria"},
+{id:871,d:"2024-02-10",st:"ME",age:25,ag:"Dipti"},
+{id:561,d:"2024-02-11",st:"NH",age:73,ag:"Maria"},
+{id:568,d:"2024-02-11",st:"RI",age:44,ag:"Dipti"},
+{id:800,d:"2024-02-11",st:"MA",age:69,ag:"Sharon"},
+{id:1458,d:"2024-02-11",st:"NH",age:51,ag:"Tom"},
+{id:58,d:"2024-02-12",st:"MA",age:70,ag:"Maria"},
+{id:825,d:"2024-02-12",st:"ME",age:58,ag:"Tom"},
+{id:183,d:"2024-02-13",st:"ME",age:54,ag:"Lin"},
+{id:996,d:"2024-02-14",st:"ME",age:67,ag:"Tom"},
+{id:539,d:"2024-02-15",st:"NH",age:64,ag:"Carlos"},
+{id:1175,d:"2024-02-15",st:"MA",age:23,ag:"Dipti"},
+{id:601,d:"2024-02-17",st:"NH",age:26,ag:"Carlos"},
+{id:1195,d:"2024-02-17",st:"NY",age:39,ag:"Dipti"},
+{id:640,d:"2024-02-18",st:"ME",age:42,ag:"Carlos"},
+{id:552,d:"2024-02-19",st:"NH",age:68,ag:"Lin"},
+{id:557,d:"2024-02-19",st:"NY",age:52,ag:"Sharon"},
+{id:1196,d:"2024-02-19",st:"RI",age:55,ag:"Tom"},
+{id:1228,d:"2024-02-19",st:"VT",age:36,ag:"Carlos"},
+{id:84,d:"2024-02-20",st:"NY",age:57,ag:"Dipti"},
+{id:1269,d:"2024-02-20",st:"VT",age:48,ag:"Maria"},
+{id:15,d:"2024-02-21",st:"MA",age:68,ag:"Lin"},
+{id:462,d:"2024-02-21",st:"RI",age:57,ag:"Maria"},
+{id:1116,d:"2024-02-21",st:"RI",age:39,ag:"Maria"},
+{id:151,d:"2024-02-22",st:"VT",age:65,ag:"Carlos"},
+{id:489,d:"2024-02-22",st:"CT",age:26,ag:"Lin"},
+{id:1212,d:"2024-02-22",st:"NH",age:43,ag:"Carlos"},
+{id:673,d:"2024-02-23",st:"NY",age:65,ag:"Lin"},
+{id:1029,d:"2024-02-23",st:"MA",age:58,ag:"Tom"},
+{id:178,d:"2024-02-24",st:"ME",age:55,ag:"Lin"},
+{id:1132,d:"2024-02-24",st:"VT",age:24,ag:"Lin"},
+{id:378,d:"2024-02-26",st:"CT",age:36,ag:"Carlos"},
+{id:786,d:"2024-02-26",st:"ME",age:74,ag:"Sharon"},
+{id:495,d:"2024-02-27",st:"VT",age:51,ag:"Carlos"},
+{id:613,d:"2024-02-27",st:"MA",age:68,ag:"Lin"},
+{id:80,d:"2024-02-28",st:"NY",age:28,ag:"Sharon"},
+{id:201,d:"2024-02-28",st:"VT",age:36,ag:"Lin"},
+{id:1464,d:"2024-02-28",st:"CT",age:57,ag:"Maria"},
+{id:609,d:"2024-02-29",st:"CT",age:49,ag:"Lin"},
+{id:245,d:"2024-03-02",st:"CT",age:43,ag:"Tom"},
+{id:950,d:"2024-03-02",st:"CT",age:75,ag:"Carlos"},
+{id:230,d:"2024-03-03",st:"VT",age:72,ag:"Dipti"},
+{id:513,d:"2024-03-03",st:"CT",age:59,ag:"Dipti"},
+{id:964,d:"2024-03-03",st:"RI",age:28,ag:"Dipti"},
+{id:885,d:"2024-03-04",st:"RI",age:27,ag:"Tom"},
+{id:1047,d:"2024-03-04",st:"VT",age:47,ag:"Sharon"},
+{id:166,d:"2024-03-06",st:"NY",age:69,ag:"Sharon"},
+{id:443,d:"2024-03-06",st:"ME",age:29,ag:"Carlos"},
+{id:958,d:"2024-03-09",st:"CT",age:66,ag:"Maria"},
+{id:1096,d:"2024-03-10",st:"RI",age:54,ag:"Tom"},
+{id:594,d:"2024-03-11",st:"MA",age:44,ag:"Sharon"},
+{id:788,d:"2024-03-12",st:"MA",age:55,ag:"Lin"},
+{id:387,d:"2024-03-13",st:"VT",age:45,ag:"Maria"},
+{id:418,d:"2024-03-13",st:"CT",age:37,ag:"Sharon"},
+{id:419,d:"2024-03-13",st:"VT",age:35,ag:"Dipti"},
+{id:1222,d:"2024-03-13",st:"CT",age:36,ag:"Carlos"},
+{id:1236,d:"2024-03-13",st:"MA",age:68,ag:"Dipti"},
+{id:163,d:"2024-03-14",st:"VT",age:60,ag:"Carlos"},
+{id:1290,d:"2024-03-14",st:"CT",age:56,ag:"Tom"},
+{id:1370,d:"2024-03-14",st:"NY",age:71,ag:"Dipti"},
+{id:91,d:"2024-03-16",st:"VT",age:64,ag:"Carlos"},
+{id:216,d:"2024-03-19",st:"ME",age:24,ag:"Dipti"},
+{id:1478,d:"2024-03-19",st:"NH",age:66,ag:"Maria"},
+{id:177,d:"2024-03-21",st:"RI",age:36,ag:"Sharon"},
+{id:500,d:"2024-03-21",st:"NH",age:26,ag:"Maria"},
+{id:223,d:"2024-03-22",st:"NY",age:32,ag:"Tom"},
+{id:375,d:"2024-03-22",st:"ME",age:25,ag:"Maria"},
+{id:278,d:"2024-03-24",st:"VT",age:46,ag:"Lin"},
+{id:339,d:"2024-03-24",st:"RI",age:24,ag:"Tom"},
+{id:377,d:"2024-03-24",st:"NY",age:36,ag:"Maria"},
+{id:580,d:"2024-03-24",st:"CT",age:37,ag:"Tom"},
+{id:602,d:"2024-03-24",st:"RI",age:24,ag:"Tom"},
+{id:238,d:"2024-03-25",st:"RI",age:51,ag:"Lin"},
+{id:910,d:"2024-03-26",st:"CT",age:23,ag:"Carlos"},
+{id:1302,d:"2024-03-26",st:"NY",age:42,ag:"Tom"},
+{id:142,d:"2024-03-27",st:"CT",age:44,ag:"Carlos"},
+{id:740,d:"2024-03-27",st:"NY",age:31,ag:"Tom"},
+{id:596,d:"2024-03-28",st:"VT",age:69,ag:"Tom"},
+{id:547,d:"2024-03-29",st:"VT",age:75,ag:"Carlos"},
+{id:909,d:"2024-03-31",st:"VT",age:60,ag:"Lin"},
+{id:960,d:"2024-03-31",st:"NH",age:64,ag:"Carlos"},
+{id:948,d:"2024-04-01",st:"VT",age:23,ag:"Carlos"},
+{id:221,d:"2024-04-02",st:"CT",age:32,ag:"Maria"},
+{id:1197,d:"2024-04-02",st:"VT",age:36,ag:"Sharon"},
+{id:1436,d:"2024-04-02",st:"ME",age:58,ag:"Carlos"},
+{id:59,d:"2024-04-03",st:"NH",age:30,ag:"Carlos"},
+{id:544,d:"2024-04-03",st:"RI",age:34,ag:"Sharon"},
+{id:549,d:"2024-04-03",st:"VT",age:30,ag:"Maria"},
+{id:805,d:"2024-04-03",st:"ME",age:68,ag:"Carlos"},
+{id:695,d:"2024-04-05",st:"RI",age:45,ag:"Dipti"},
+{id:699,d:"2024-04-05",st:"VT",age:39,ag:"Maria"},
+{id:630,d:"2024-04-06",st:"MA",age:58,ag:"Sharon"},
+{id:686,d:"2024-04-06",st:"NH",age:53,ag:"Maria"},
+{id:461,d:"2024-04-07",st:"CT",age:58,ag:"Sharon"},
+{id:787,d:"2024-04-07",st:"NH",age:65,ag:"Maria"},
+{id:1038,d:"2024-04-08",st:"NY",age:65,ag:"Lin"},
+{id:262,d:"2024-04-09",st:"VT",age:60,ag:"Tom"},
+{id:317,d:"2024-04-09",st:"MA",age:35,ag:"Tom"},
+{id:355,d:"2024-04-09",st:"ME",age:67,ag:"Dipti"},
+{id:506,d:"2024-04-09",st:"NY",age:63,ag:"Dipti"},
+{id:1019,d:"2024-04-09",st:"ME",age:50,ag:"Maria"},
+{id:10,d:"2024-04-10",st:"NY",age:32,ag:"Carlos"},
+{id:1306,d:"2024-04-10",st:"VT",age:45,ag:"Dipti"},
+{id:1462,d:"2024-04-10",st:"ME",age:36,ag:"Dipti"},
+{id:1277,d:"2024-04-12",st:"RI",age:33,ag:"Sharon"},
+{id:316,d:"2024-04-13",st:"RI",age:62,ag:"Lin"},
+{id:812,d:"2024-04-13",st:"MA",age:41,ag:"Lin"},
+{id:40,d:"2024-04-14",st:"MA",age:29,ag:"Sharon"},
+{id:380,d:"2024-04-14",st:"ME",age:71,ag:"Carlos"},
+{id:475,d:"2024-04-15",st:"VT",age:25,ag:"Carlos"},
+{id:836,d:"2024-04-15",st:"VT",age:52,ag:"Sharon"},
+{id:268,d:"2024-04-17",st:"RI",age:28,ag:"Dipti"},
+{id:988,d:"2024-04-17",st:"ME",age:73,ag:"Dipti"},
+{id:46,d:"2024-04-19",st:"CT",age:71,ag:"Carlos"},
+{id:1034,d:"2024-04-19",st:"NY",age:48,ag:"Dipti"},
+{id:1114,d:"2024-04-20",st:"NY",age:39,ag:"Carlos"},
+{id:1169,d:"2024-04-21",st:"VT",age:37,ag:"Dipti"},
+{id:1319,d:"2024-04-21",st:"NY",age:66,ag:"Dipti"},
+{id:743,d:"2024-04-22",st:"RI",age:35,ag:"Sharon"},
+{id:1496,d:"2024-04-22",st:"NY",age:56,ag:"Tom"},
+{id:354,d:"2024-04-23",st:"MA",age:49,ag:"Dipti"},
+{id:390,d:"2024-04-23",st:"NY",age:43,ag:"Dipti"},
+{id:966,d:"2024-04-23",st:"VT",age:57,ag:"Maria"},
+{id:376,d:"2024-04-24",st:"RI",age:75,ag:"Tom"},
+{id:499,d:"2024-04-24",st:"CT",age:36,ag:"Tom"},
+{id:1297,d:"2024-04-24",st:"RI",age:39,ag:"Tom"},
+{id:340,d:"2024-04-25",st:"RI",age:67,ag:"Lin"},
+{id:185,d:"2024-04-26",st:"NY",age:52,ag:"Lin"},
+{id:610,d:"2024-04-26",st:"RI",age:46,ag:"Tom"},
+{id:408,d:"2024-04-27",st:"ME",age:31,ag:"Lin"},
+{id:1467,d:"2024-04-27",st:"ME",age:48,ag:"Dipti"},
+{id:152,d:"2024-04-28",st:"ME",age:64,ag:"Sharon"},
+{id:490,d:"2024-04-28",st:"MA",age:49,ag:"Dipti"},
+{id:822,d:"2024-04-29",st:"MA",age:47,ag:"Lin"},
+{id:980,d:"2024-04-29",st:"NH",age:55,ag:"Sharon"},
+{id:1123,d:"2024-04-29",st:"VT",age:22,ag:"Dipti"},
+{id:1127,d:"2024-04-29",st:"ME",age:48,ag:"Sharon"},
+{id:709,d:"2024-04-30",st:"NY",age:41,ag:"Maria"},
+{id:452,d:"2024-05-01",st:"CT",age:73,ag:"Sharon"},
+{id:756,d:"2024-05-01",st:"ME",age:24,ag:"Sharon"},
+{id:985,d:"2024-05-02",st:"VT",age:34,ag:"Lin"},
+{id:3,d:"2024-05-03",st:"MA",age:65,ag:"Carlos"},
+{id:1488,d:"2024-05-03",st:"VT",age:62,ag:"Sharon"},
+{id:1476,d:"2024-05-04",st:"MA",age:57,ag:"Lin"},
+{id:135,d:"2024-05-05",st:"NY",age:37,ag:"Tom"},
+{id:595,d:"2024-05-07",st:"ME",age:62,ag:"Dipti"},
+{id:1139,d:"2024-05-07",st:"VT",age:70,ag:"Sharon"},
+{id:1069,d:"2024-05-09",st:"NY",age:28,ag:"Dipti"},
+{id:27,d:"2024-05-11",st:"NH",age:32,ag:"Lin"},
+{id:147,d:"2024-05-11",st:"NY",age:42,ag:"Lin"},
+{id:1303,d:"2024-05-11",st:"RI",age:60,ag:"Carlos"},
+{id:433,d:"2024-05-13",st:"NY",age:64,ag:"Maria"},
+{id:503,d:"2024-05-13",st:"NY",age:63,ag:"Sharon"},
+{id:1440,d:"2024-05-13",st:"NH",age:52,ag:"Tom"},
+{id:1061,d:"2024-05-14",st:"ME",age:70,ag:"Sharon"},
+{id:1352,d:"2024-05-15",st:"NY",age:57,ag:"Sharon"},
+{id:847,d:"2024-05-16",st:"ME",age:57,ag:"Sharon"},
+{id:73,d:"2024-05-17",st:"VT",age:58,ag:"Lin"},
+{id:799,d:"2024-05-17",st:"MA",age:47,ag:"Tom"},
+{id:866,d:"2024-05-17",st:"ME",age:69,ag:"Lin"},
+{id:1075,d:"2024-05-18",st:"NH",age:62,ag:"Carlos"},
+{id:45,d:"2024-05-19",st:"MA",age:65,ag:"Maria"},
+{id:456,d:"2024-05-19",st:"MA",age:40,ag:"Maria"},
+{id:1083,d:"2024-05-19",st:"VT",age:40,ag:"Carlos"},
+{id:666,d:"2024-05-20",st:"VT",age:43,ag:"Maria"},
+{id:49,d:"2024-05-21",st:"CT",age:54,ag:"Sharon"},
+{id:554,d:"2024-05-21",st:"NH",age:50,ag:"Maria"},
+{id:1401,d:"2024-05-21",st:"VT",age:29,ag:"Tom"},
+{id:351,d:"2024-05-22",st:"NY",age:53,ag:"Maria"},
+{id:794,d:"2024-05-23",st:"VT",age:53,ag:"Dipti"},
+{id:1461,d:"2024-05-24",st:"RI",age:29,ag:"Dipti"},
+{id:1471,d:"2024-05-24",st:"CT",age:28,ag:"Lin"},
+{id:226,d:"2024-05-25",st:"NH",age:26,ag:"Maria"},
+{id:524,d:"2024-05-26",st:"MA",age:54,ag:"Carlos"},
+{id:1328,d:"2024-05-28",st:"ME",age:63,ag:"Tom"},
+{id:643,d:"2024-05-29",st:"ME",age:66,ag:"Carlos"},
+{id:1147,d:"2024-05-29",st:"CT",age:27,ag:"Dipti"},
+{id:1389,d:"2024-05-29",st:"ME",age:72,ag:"Dipti"},
+{id:321,d:"2024-05-31",st:"NH",age:41,ag:"Maria"},
+{id:150,d:"2024-06-01",st:"RI",age:22,ag:"Maria"},
+{id:537,d:"2024-06-01",st:"MA",age:41,ag:"Maria"},
+{id:69,d:"2024-06-02",st:"ME",age:25,ag:"Sharon"},
+{id:1221,d:"2024-06-02",st:"VT",age:66,ag:"Maria"},
+{id:193,d:"2024-06-03",st:"NH",age:26,ag:"Lin"},
+{id:326,d:"2024-06-04",st:"CT",age:48,ag:"Lin"},
+{id:735,d:"2024-06-05",st:"NH",age:66,ag:"Carlos"},
+{id:987,d:"2024-06-05",st:"NH",age:35,ag:"Tom"},
+{id:1435,d:"2024-06-05",st:"NY",age:65,ag:"Maria"},
+{id:112,d:"2024-06-06",st:"CT",age:61,ag:"Carlos"},
+{id:780,d:"2024-06-06",st:"NY",age:41,ag:"Carlos"},
+{id:821,d:"2024-06-06",st:"NY",age:25,ag:"Sharon"},
+{id:1205,d:"2024-06-06",st:"ME",age:44,ag:"Maria"},
+{id:1405,d:"2024-06-06",st:"RI",age:40,ag:"Sharon"},
+{id:466,d:"2024-06-07",st:"NY",age:41,ag:"Tom"},
+{id:892,d:"2024-06-07",st:"NH",age:27,ag:"Lin"},
+{id:8,d:"2024-06-08",st:"VT",age:48,ag:"Sharon"},
+{id:25,d:"2024-06-08",st:"ME",age:63,ag:"Dipti"},
+{id:1036,d:"2024-06-08",st:"NY",age:30,ag:"Sharon"},
+{id:1226,d:"2024-06-08",st:"VT",age:47,ag:"Maria"},
+{id:402,d:"2024-06-09",st:"CT",age:63,ag:"Lin"},
+{id:1149,d:"2024-06-09",st:"CT",age:51,ag:"Carlos"},
+{id:1155,d:"2024-06-09",st:"NY",age:69,ag:"Tom"},
+{id:319,d:"2024-06-11",st:"RI",age:29,ag:"Dipti"},
+{id:1105,d:"2024-06-11",st:"RI",age:68,ag:"Sharon"},
+{id:1204,d:"2024-06-12",st:"CT",age:59,ag:"Dipti"},
+{id:407,d:"2024-06-13",st:"VT",age:48,ag:"Maria"},
+{id:887,d:"2024-06-13",st:"NH",age:41,ag:"Carlos"},
+{id:1251,d:"2024-06-13",st:"VT",age:68,ag:"Carlos"},
+{id:575,d:"2024-06-14",st:"NY",age:30,ag:"Carlos"},
+{id:600,d:"2024-06-14",st:"RI",age:62,ag:"Sharon"},
+{id:745,d:"2024-06-14",st:"CT",age:30,ag:"Dipti"},
+{id:1300,d:"2024-06-14",st:"ME",age:28,ag:"Sharon"},
+{id:1043,d:"2024-06-15",st:"CT",age:51,ag:"Lin"},
+{id:637,d:"2024-06-16",st:"RI",age:34,ag:"Dipti"},
+{id:1000,d:"2024-06-16",st:"NH",age:54,ag:"Lin"},
+{id:1295,d:"2024-06-16",st:"RI",age:24,ag:"Lin"},
+{id:1378,d:"2024-06-16",st:"CT",age:41,ag:"Sharon"},
+{id:1235,d:"2024-06-17",st:"MA",age:44,ag:"Tom"},
+{id:957,d:"2024-06-18",st:"RI",age:56,ag:"Dipti"},
+{id:125,d:"2024-06-19",st:"NH",age:56,ag:"Dipti"},
+{id:227,d:"2024-06-19",st:"NY",age:62,ag:"Sharon"},
+{id:63,d:"2024-06-20",st:"NH",age:67,ag:"Tom"},
+{id:411,d:"2024-06-20",st:"CT",age:35,ag:"Lin"},
+{id:1424,d:"2024-06-20",st:"NY",age:52,ag:"Lin"},
+{id:296,d:"2024-06-21",st:"CT",age:66,ag:"Lin"},
+{id:1026,d:"2024-06-21",st:"CT",age:67,ag:"Maria"},
+{id:1056,d:"2024-06-21",st:"NH",age:63,ag:"Tom"},
+{id:715,d:"2024-06-22",st:"ME",age:23,ag:"Maria"},
+{id:967,d:"2024-06-22",st:"VT",age:36,ag:"Lin"},
+{id:1407,d:"2024-06-22",st:"RI",age:43,ag:"Sharon"},
+{id:1272,d:"2024-06-23",st:"NY",age:52,ag:"Maria"},
+{id:413,d:"2024-06-24",st:"CT",age:56,ag:"Carlos"},
+{id:436,d:"2024-06-24",st:"MA",age:53,ag:"Carlos"},
+{id:1347,d:"2024-06-24",st:"VT",age:62,ag:"Lin"},
+{id:1010,d:"2024-06-25",st:"RI",age:48,ag:"Carlos"},
+{id:1181,d:"2024-06-27",st:"RI",age:33,ag:"Tom"},
+{id:1052,d:"2024-06-28",st:"NY",age:25,ag:"Dipti"},
+{id:381,d:"2024-06-29",st:"NY",age:30,ag:"Carlos"},
+{id:731,d:"2024-06-29",st:"ME",age:73,ag:"Carlos"},
+{id:1104,d:"2024-06-29",st:"ME",age:26,ag:"Tom"},
+{id:1315,d:"2024-06-29",st:"MA",age:37,ag:"Tom"},
+{id:700,d:"2024-06-30",st:"VT",age:29,ag:"Sharon"},
+{id:1353,d:"2024-06-30",st:"CT",age:63,ag:"Dipti"},
+{id:204,d:"2024-07-01",st:"NY",age:47,ag:"Carlos"},
+{id:529,d:"2024-07-01",st:"VT",age:25,ag:"Carlos"},
+{id:1033,d:"2024-07-01",st:"NY",age:28,ag:"Sharon"},
+{id:625,d:"2024-07-02",st:"NY",age:50,ag:"Dipti"},
+{id:1429,d:"2024-07-02",st:"RI",age:33,ag:"Maria"},
+{id:1167,d:"2024-07-03",st:"CT",age:38,ag:"Sharon"},
+{id:1276,d:"2024-07-03",st:"VT",age:31,ag:"Dipti"},
+{id:1331,d:"2024-07-03",st:"VT",age:74,ag:"Maria"},
+{id:392,d:"2024-07-04",st:"ME",age:65,ag:"Lin"},
+{id:165,d:"2024-07-05",st:"NH",age:54,ag:"Lin"},
+{id:301,d:"2024-07-06",st:"NY",age:58,ag:"Maria"},
+{id:881,d:"2024-07-06",st:"RI",age:73,ag:"Sharon"},
+{id:1122,d:"2024-07-06",st:"ME",age:29,ag:"Sharon"},
+{id:78,d:"2024-07-07",st:"ME",age:63,ag:"Dipti"},
+{id:813,d:"2024-07-07",st:"ME",age:56,ag:"Lin"},
+{id:952,d:"2024-07-07",st:"RI",age:30,ag:"Carlos"},
+{id:1131,d:"2024-07-07",st:"MA",age:33,ag:"Sharon"},
+{id:170,d:"2024-07-08",st:"CT",age:36,ag:"Sharon"},
+{id:692,d:"2024-07-08",st:"RI",age:40,ag:"Maria"},
+{id:622,d:"2024-07-09",st:"ME",age:47,ag:"Tom"},
+{id:833,d:"2024-07-09",st:"RI",age:72,ag:"Maria"},
+{id:1348,d:"2024-07-09",st:"CT",age:54,ag:"Tom"},
+{id:181,d:"2024-07-13",st:"VT",age:57,ag:"Maria"},
+{id:778,d:"2024-07-13",st:"MA",age:51,ag:"Tom"},
+{id:1495,d:"2024-07-13",st:"ME",age:48,ag:"Carlos"},
+{id:130,d:"2024-07-14",st:"MA",age:44,ag:"Maria"},
+{id:876,d:"2024-07-14",st:"VT",age:52,ag:"Carlos"},
+{id:159,d:"2024-07-16",st:"RI",age:65,ag:"Carlos"},
+{id:1046,d:"2024-07-16",st:"ME",age:44,ag:"Dipti"},
+{id:168,d:"2024-07-17",st:"ME",age:61,ag:"Tom"},
+{id:1441,d:"2024-07-17",st:"ME",age:63,ag:"Lin"},
+{id:536,d:"2024-07-18",st:"RI",age:30,ag:"Maria"},
+{id:1217,d:"2024-07-18",st:"RI",age:59,ag:"Dipti"},
+{id:20,d:"2024-07-19",st:"NH",age:71,ag:"Tom"},
+{id:808,d:"2024-07-19",st:"NY",age:56,ag:"Sharon"},
+{id:1392,d:"2024-07-19",st:"MA",age:63,ag:"Dipti"},
+{id:914,d:"2024-07-20",st:"RI",age:27,ag:"Maria"},
+{id:334,d:"2024-07-21",st:"RI",age:31,ag:"Lin"},
+{id:167,d:"2024-07-22",st:"MA",age:40,ag:"Maria"},
+{id:984,d:"2024-07-23",st:"RI",age:47,ag:"Dipti"},
+{id:1109,d:"2024-07-23",st:"ME",age:33,ag:"Dipti"},
+{id:34,d:"2024-07-25",st:"RI",age:47,ag:"Carlos"},
+{id:176,d:"2024-07-25",st:"ME",age:22,ag:"Dipti"},
+{id:608,d:"2024-07-25",st:"CT",age:39,ag:"Dipti"},
+{id:1338,d:"2024-07-25",st:"ME",age:63,ag:"Tom"},
+{id:409,d:"2024-07-26",st:"MA",age:75,ag:"Lin"},
+{id:1058,d:"2024-07-26",st:"CT",age:38,ag:"Dipti"},
+{id:809,d:"2024-07-27",st:"NY",age:44,ag:"Dipti"},
+{id:1452,d:"2024-07-27",st:"MA",age:28,ag:"Lin"},
+{id:752,d:"2024-07-28",st:"RI",age:52,ag:"Carlos"},
+{id:521,d:"2024-07-29",st:"NH",age:42,ag:"Maria"},
+{id:755,d:"2024-07-29",st:"VT",age:36,ag:"Maria"},
+{id:237,d:"2024-07-30",st:"CT",age:61,ag:"Maria"},
+{id:444,d:"2024-07-30",st:"NY",age:57,ag:"Carlos"},
+{id:1241,d:"2024-07-30",st:"NY",age:65,ag:"Sharon"},
+{id:349,d:"2024-07-31",st:"MA",age:43,ag:"Carlos"},
+{id:632,d:"2024-07-31",st:"CT",age:37,ag:"Dipti"},
+{id:889,d:"2024-07-31",st:"NY",age:24,ag:"Dipti"},
+{id:1074,d:"2024-07-31",st:"NH",age:50,ag:"Tom"},
+{id:1425,d:"2024-08-01",st:"NY",age:32,ag:"Dipti"},
+{id:292,d:"2024-08-02",st:"NH",age:39,ag:"Sharon"},
+{id:766,d:"2024-08-02",st:"CT",age:67,ag:"Sharon"},
+{id:530,d:"2024-08-03",st:"CT",age:26,ag:"Tom"},
+{id:963,d:"2024-08-03",st:"RI",age:70,ag:"Tom"},
+{id:1419,d:"2024-08-03",st:"NH",age:43,ag:"Tom"},
+{id:1087,d:"2024-08-04",st:"MA",age:72,ag:"Sharon"},
+{id:517,d:"2024-08-05",st:"NY",age:27,ag:"Maria"},
+{id:1188,d:"2024-08-07",st:"NY",age:55,ag:"Sharon"},
+{id:1448,d:"2024-08-07",st:"RI",age:47,ag:"Sharon"},
+{id:672,d:"2024-08-08",st:"CT",age:52,ag:"Sharon"},
+{id:563,d:"2024-08-09",st:"RI",age:45,ag:"Maria"},
+{id:664,d:"2024-08-09",st:"NH",age:59,ag:"Maria"},
+{id:762,d:"2024-08-09",st:"VT",age:55,ag:"Lin"},
+{id:1072,d:"2024-08-09",st:"ME",age:31,ag:"Dipti"},
+{id:493,d:"2024-08-10",st:"RI",age:40,ag:"Dipti"},
+{id:656,d:"2024-08-10",st:"VT",age:33,ag:"Sharon"},
+{id:1099,d:"2024-08-10",st:"VT",age:56,ag:"Maria"},
+{id:1337,d:"2024-08-10",st:"CT",age:39,ag:"Tom"},
+{id:1,d:"2024-08-11",st:"MA",age:23,ag:"Carlos"},
+{id:417,d:"2024-08-11",st:"VT",age:23,ag:"Dipti"},
+{id:582,d:"2024-08-11",st:"NY",age:61,ag:"Lin"},
+{id:621,d:"2024-08-11",st:"NY",age:25,ag:"Dipti"},
+{id:1233,d:"2024-08-11",st:"ME",age:43,ag:"Lin"},
+{id:1259,d:"2024-08-12",st:"CT",age:27,ag:"Lin"},
+{id:122,d:"2024-08-13",st:"CT",age:32,ag:"Carlos"},
+{id:306,d:"2024-08-15",st:"NY",age:53,ag:"Dipti"},
+{id:510,d:"2024-08-15",st:"VT",age:42,ag:"Carlos"},
+{id:1003,d:"2024-08-15",st:"VT",age:66,ag:"Carlos"},
+{id:1103,d:"2024-08-16",st:"NY",age:75,ag:"Carlos"},
+{id:1367,d:"2024-08-16",st:"MA",age:22,ag:"Lin"},
+{id:501,d:"2024-08-17",st:"MA",age:55,ag:"Maria"},
+{id:1027,d:"2024-08-18",st:"RI",age:32,ag:"Maria"},
+{id:353,d:"2024-08-19",st:"ME",age:40,ag:"Sharon"},
+{id:320,d:"2024-08-20",st:"VT",age:73,ag:"Sharon"},
+{id:1189,d:"2024-08-20",st:"NY",age:56,ag:"Dipti"},
+{id:719,d:"2024-08-21",st:"ME",age:61,ag:"Lin"},
+{id:983,d:"2024-08-21",st:"NH",age:33,ag:"Carlos"},
+{id:1097,d:"2024-08-22",st:"ME",age:54,ag:"Lin"},
+{id:41,d:"2024-08-23",st:"NH",age:72,ag:"Carlos"},
+{id:1118,d:"2024-08-23",st:"MA",age:53,ag:"Lin"},
+{id:831,d:"2024-08-24",st:"ME",age:49,ag:"Maria"},
+{id:1377,d:"2024-08-24",st:"ME",age:37,ag:"Sharon"},
+{id:282,d:"2024-08-25",st:"NH",age:38,ag:"Carlos"},
+{id:1257,d:"2024-08-25",st:"VT",age:52,ag:"Sharon"},
+{id:1286,d:"2024-08-27",st:"VT",age:55,ag:"Lin"},
+{id:1391,d:"2024-08-27",st:"MA",age:60,ag:"Dipti"},
+{id:206,d:"2024-08-28",st:"VT",age:23,ag:"Lin"},
+{id:1137,d:"2024-08-28",st:"NH",age:51,ag:"Tom"},
+{id:1399,d:"2024-08-28",st:"VT",age:66,ag:"Sharon"},
+{id:218,d:"2024-08-29",st:"NH",age:37,ag:"Sharon"},
+{id:101,d:"2024-08-31",st:"MA",age:48,ag:"Carlos"},
+{id:1184,d:"2024-08-31",st:"VT",age:37,ag:"Carlos"},
+{id:18,d:"2024-09-01",st:"NY",age:45,ag:"Maria"},
+{id:1439,d:"2024-09-01",st:"MA",age:49,ag:"Carlos"},
+{id:1455,d:"2024-09-01",st:"ME",age:41,ag:"Maria"},
+{id:410,d:"2024-09-04",st:"RI",age:39,ag:"Dipti"},
+{id:746,d:"2024-09-04",st:"ME",age:59,ag:"Sharon"},
+{id:587,d:"2024-09-05",st:"CT",age:37,ag:"Maria"},
+{id:663,d:"2024-09-05",st:"VT",age:27,ag:"Maria"},
+{id:782,d:"2024-09-05",st:"NH",age:36,ag:"Sharon"},
+{id:818,d:"2024-09-05",st:"NY",age:23,ag:"Sharon"},
+{id:997,d:"2024-09-05",st:"VT",age:27,ag:"Carlos"},
+{id:463,d:"2024-09-06",st:"ME",age:63,ag:"Maria"},
+{id:1247,d:"2024-09-06",st:"RI",age:67,ag:"Dipti"},
+{id:1443,d:"2024-09-07",st:"MA",age:22,ag:"Carlos"},
+{id:649,d:"2024-09-08",st:"MA",age:26,ag:"Tom"},
+{id:281,d:"2024-09-10",st:"ME",age:28,ag:"Sharon"},
+{id:527,d:"2024-09-10",st:"NH",age:45,ag:"Tom"},
+{id:26,d:"2024-09-11",st:"ME",age:32,ag:"Maria"},
+{id:579,d:"2024-09-11",st:"VT",age:49,ag:"Dipti"},
+{id:438,d:"2024-09-12",st:"NH",age:26,ag:"Sharon"},
+{id:222,d:"2024-09-13",st:"ME",age:67,ag:"Dipti"},
+{id:677,d:"2024-09-13",st:"NH",age:42,ag:"Carlos"},
+{id:148,d:"2024-09-14",st:"VT",age:29,ag:"Lin"},
+{id:784,d:"2024-09-14",st:"CT",age:48,ag:"Carlos"},
+{id:1481,d:"2024-09-14",st:"CT",age:54,ag:"Lin"},
+{id:117,d:"2024-09-15",st:"NH",age:67,ag:"Tom"},
+{id:845,d:"2024-09-15",st:"VT",age:24,ag:"Dipti"},
+{id:533,d:"2024-09-17",st:"NY",age:31,ag:"Tom"},
+{id:941,d:"2024-09-17",st:"ME",age:34,ag:"Lin"},
+{id:1164,d:"2024-09-17",st:"MA",age:35,ag:"Tom"},
+{id:54,d:"2024-09-21",st:"CT",age:53,ag:"Dipti"},
+{id:441,d:"2024-09-23",st:"VT",age:40,ag:"Lin"},
+{id:584,d:"2024-09-23",st:"VT",age:23,ag:"Carlos"},
+{id:925,d:"2024-09-23",st:"VT",age:72,ag:"Tom"},
+{id:993,d:"2024-09-23",st:"RI",age:61,ag:"Lin"},
+{id:246,d:"2024-09-24",st:"ME",age:39,ag:"Maria"},
+{id:277,d:"2024-09-24",st:"NY",age:61,ag:"Sharon"},
+{id:294,d:"2024-09-25",st:"ME",age:74,ag:"Maria"},
+{id:518,d:"2024-09-26",st:"VT",age:46,ag:"Lin"},
+{id:940,d:"2024-09-26",st:"NH",age:41,ag:"Tom"},
+{id:959,d:"2024-09-26",st:"ME",age:27,ag:"Dipti"},
+{id:207,d:"2024-09-28",st:"VT",age:64,ag:"Dipti"},
+{id:947,d:"2024-09-28",st:"VT",age:33,ag:"Carlos"},
+{id:986,d:"2024-09-28",st:"RI",age:46,ag:"Dipti"},
+{id:1138,d:"2024-09-29",st:"RI",age:71,ag:"Sharon"},
+{id:1428,d:"2024-09-30",st:"RI",age:73,ag:"Maria"},
+{id:290,d:"2024-10-01",st:"ME",age:73,ag:"Sharon"},
+{id:1079,d:"2024-10-01",st:"ME",age:46,ag:"Tom"},
+{id:1223,d:"2024-10-01",st:"NY",age:33,ag:"Lin"},
+{id:68,d:"2024-10-02",st:"NH",age:22,ag:"Dipti"},
+{id:427,d:"2024-10-02",st:"CT",age:23,ag:"Sharon"},
+{id:969,d:"2024-10-02",st:"ME",age:54,ag:"Sharon"},
+{id:1473,d:"2024-10-02",st:"MA",age:71,ag:"Lin"},
+{id:900,d:"2024-10-03",st:"NH",age:70,ag:"Carlos"},
+{id:994,d:"2024-10-03",st:"MA",age:44,ag:"Tom"},
+{id:421,d:"2024-10-04",st:"NH",age:74,ag:"Sharon"},
+{id:861,d:"2024-10-06",st:"VT",age:68,ag:"Lin"},
+{id:38,d:"2024-10-07",st:"RI",age:45,ag:"Sharon"},
+{id:102,d:"2024-10-07",st:"VT",age:55,ag:"Tom"},
+{id:718,d:"2024-10-07",st:"RI",age:32,ag:"Maria"},
+{id:1345,d:"2024-10-07",st:"ME",age:58,ag:"Sharon"},
+{id:956,d:"2024-10-08",st:"RI",age:56,ag:"Maria"},
+{id:519,d:"2024-10-10",st:"VT",age:72,ag:"Carlos"},
+{id:1359,d:"2024-10-10",st:"VT",age:26,ag:"Lin"},
+{id:384,d:"2024-10-11",st:"CT",age:68,ag:"Sharon"},
+{id:801,d:"2024-10-12",st:"MA",age:24,ag:"Lin"},
+{id:685,d:"2024-10-13",st:"ME",age:42,ag:"Sharon"},
+{id:717,d:"2024-10-13",st:"NH",age:68,ag:"Dipti"},
+{id:826,d:"2024-10-13",st:"VT",age:71,ag:"Carlos"},
+{id:989,d:"2024-10-13",st:"MA",age:73,ag:"Maria"},
+{id:149,d:"2024-10-14",st:"NH",age:38,ag:"Dipti"},
+{id:303,d:"2024-10-14",st:"MA",age:70,ag:"Sharon"},
+{id:1369,d:"2024-10-14",st:"NY",age:32,ag:"Lin"},
+{id:225,d:"2024-10-15",st:"ME",age:46,ag:"Lin"},
+{id:372,d:"2024-10-16",st:"CT",age:66,ag:"Tom"},
+{id:269,d:"2024-10-17",st:"CT",age:52,ag:"Lin"},
+{id:776,d:"2024-10-18",st:"MA",age:38,ag:"Carlos"},
+{id:1130,d:"2024-10-19",st:"CT",age:29,ag:"Maria"},
+{id:242,d:"2024-10-21",st:"VT",age:64,ag:"Lin"},
+{id:768,d:"2024-10-23",st:"ME",age:70,ag:"Sharon"},
+{id:33,d:"2024-10-24",st:"ME",age:42,ag:"Sharon"},
+{id:896,d:"2024-10-24",st:"RI",age:39,ag:"Dipti"},
+{id:1120,d:"2024-10-24",st:"NH",age:45,ag:"Sharon"},
+{id:1288,d:"2024-10-24",st:"VT",age:59,ag:"Dipti"},
+{id:360,d:"2024-10-25",st:"ME",age:72,ag:"Sharon"},
+{id:468,d:"2024-10-25",st:"ME",age:47,ag:"Dipti"},
+{id:894,d:"2024-10-25",st:"NY",age:28,ag:"Maria"},
+{id:1015,d:"2024-10-25",st:"ME",age:71,ag:"Lin"},
+{id:1051,d:"2024-10-25",st:"NY",age:53,ag:"Tom"},
+{id:1229,d:"2024-10-25",st:"MA",age:53,ag:"Sharon"},
+{id:1437,d:"2024-10-26",st:"NH",age:64,ag:"Tom"},
+{id:790,d:"2024-10-27",st:"MA",age:25,ag:"Maria"},
+{id:898,d:"2024-10-27",st:"ME",age:24,ag:"Sharon"},
+{id:1136,d:"2024-10-27",st:"NY",age:41,ag:"Carlos"},
+{id:1206,d:"2024-10-27",st:"NH",age:58,ag:"Sharon"},
+{id:454,d:"2024-10-29",st:"CT",age:64,ag:"Dipti"},
+{id:680,d:"2024-10-29",st:"MA",age:42,ag:"Sharon"},
+{id:839,d:"2024-10-29",st:"RI",age:48,ag:"Maria"},
+{id:1456,d:"2024-10-29",st:"NH",age:63,ag:"Carlos"},
+{id:1494,d:"2024-10-29",st:"RI",age:59,ag:"Maria"},
+{id:7,d:"2024-10-30",st:"NH",age:67,ag:"Carlos"},
+{id:124,d:"2024-10-30",st:"MA",age:29,ag:"Dipti"},
+{id:1334,d:"2024-10-30",st:"ME",age:60,ag:"Maria"},
+{id:737,d:"2024-10-31",st:"NY",age:68,ag:"Tom"},
+{id:1459,d:"2024-10-31",st:"NY",age:61,ag:"Maria"},
+{id:928,d:"2024-11-01",st:"NH",age:58,ag:"Maria"},
+{id:276,d:"2024-11-02",st:"NY",age:48,ag:"Maria"},
+{id:702,d:"2024-11-02",st:"CT",age:70,ag:"Sharon"},
+{id:1350,d:"2024-11-02",st:"NH",age:40,ag:"Dipti"},
+{id:29,d:"2024-11-03",st:"NH",age:65,ag:"Tom"},
+{id:830,d:"2024-11-03",st:"VT",age:69,ag:"Sharon"},
+{id:453,d:"2024-11-04",st:"MA",age:59,ag:"Maria"},
+{id:249,d:"2024-11-05",st:"NY",age:37,ag:"Carlos"},
+{id:158,d:"2024-11-06",st:"NH",age:34,ag:"Lin"},
+{id:591,d:"2024-11-06",st:"MA",age:46,ag:"Lin"},
+{id:116,d:"2024-11-07",st:"NH",age:39,ag:"Tom"},
+{id:17,d:"2024-11-08",st:"CT",age:75,ag:"Carlos"},
+{id:284,d:"2024-11-08",st:"MA",age:32,ag:"Dipti"},
+{id:336,d:"2024-11-08",st:"NY",age:56,ag:"Lin"},
+{id:981,d:"2024-11-08",st:"NH",age:43,ag:"Maria"},
+{id:1284,d:"2024-11-08",st:"CT",age:39,ag:"Maria"},
+{id:878,d:"2024-11-09",st:"RI",age:22,ag:"Dipti"},
+{id:318,d:"2024-11-11",st:"NH",age:40,ag:"Lin"},
+{id:785,d:"2024-11-11",st:"RI",age:70,ag:"Maria"},
+{id:1016,d:"2024-11-11",st:"VT",age:29,ag:"Maria"},
+{id:440,d:"2024-11-12",st:"ME",age:42,ag:"Lin"},
+{id:1246,d:"2024-11-13",st:"MA",age:43,ag:"Maria"},
+{id:1487,d:"2024-11-13",st:"NY",age:42,ag:"Carlos"},
+{id:730,d:"2024-11-14",st:"CT",age:65,ag:"Carlos"},
+{id:4,d:"2024-11-15",st:"MA",age:59,ag:"Lin"},
+{id:615,d:"2024-11-15",st:"CT",age:42,ag:"Dipti"},
+{id:739,d:"2024-11-17",st:"RI",age:47,ag:"Tom"},
+{id:94,d:"2024-11-18",st:"MA",age:69,ag:"Tom"},
+{id:314,d:"2024-11-18",st:"RI",age:48,ag:"Dipti"},
+{id:642,d:"2024-11-18",st:"CT",age:41,ag:"Sharon"},
+{id:191,d:"2024-11-20",st:"MA",age:30,ag:"Sharon"},
+{id:424,d:"2024-11-20",st:"CT",age:73,ag:"Sharon"},
+{id:904,d:"2024-11-20",st:"CT",age:46,ag:"Carlos"},
+{id:1252,d:"2024-11-20",st:"CT",age:64,ag:"Tom"},
+{id:53,d:"2024-11-21",st:"NY",age:55,ag:"Dipti"},
+{id:200,d:"2024-11-22",st:"ME",age:69,ag:"Maria"},
+{id:335,d:"2024-11-22",st:"RI",age:44,ag:"Tom"},
+{id:1014,d:"2024-11-23",st:"CT",age:32,ag:"Lin"},
+{id:16,d:"2024-11-24",st:"MA",age:46,ag:"Dipti"},
+{id:1102,d:"2024-11-24",st:"CT",age:47,ag:"Maria"},
+{id:843,d:"2024-11-25",st:"ME",age:75,ag:"Sharon"},
+{id:350,d:"2024-11-27",st:"RI",age:42,ag:"Carlos"},
+{id:711,d:"2024-11-28",st:"RI",age:67,ag:"Maria"},
+{id:1030,d:"2024-11-28",st:"CT",age:60,ag:"Maria"},
+{id:814,d:"2024-11-29",st:"RI",age:74,ag:"Sharon"},
+{id:1073,d:"2024-11-30",st:"VT",age:22,ag:"Maria"},
+{id:631,d:"2024-12-01",st:"CT",age:47,ag:"Tom"},
+{id:840,d:"2024-12-01",st:"NH",age:46,ag:"Sharon"},
+{id:879,d:"2024-12-01",st:"ME",age:39,ag:"Maria"},
+{id:113,d:"2024-12-02",st:"MA",age:64,ag:"Maria"},
+{id:61,d:"2024-12-03",st:"NY",age:60,ag:"Lin"},
+{id:789,d:"2024-12-03",st:"ME",age:45,ag:"Dipti"},
+{id:1090,d:"2024-12-03",st:"MA",age:45,ag:"Tom"},
+{id:548,d:"2024-12-04",st:"MA",age:64,ag:"Tom"},
+{id:590,d:"2024-12-05",st:"VT",age:54,ag:"Maria"},
+{id:651,d:"2024-12-05",st:"RI",age:71,ag:"Lin"},
+{id:498,d:"2024-12-07",st:"MA",age:47,ag:"Tom"},
+{id:1112,d:"2024-12-08",st:"VT",age:72,ag:"Carlos"},
+{id:1498,d:"2024-12-08",st:"MA",age:23,ag:"Lin"},
+{id:974,d:"2024-12-10",st:"RI",age:44,ag:"Lin"},
+{id:1382,d:"2024-12-11",st:"VT",age:55,ag:"Tom"},
+{id:706,d:"2024-12-12",st:"RI",age:31,ag:"Maria"},
+{id:1065,d:"2024-12-12",st:"ME",age:50,ag:"Dipti"},
+{id:1438,d:"2024-12-12",st:"VT",age:66,ag:"Carlos"},
+{id:634,d:"2024-12-13",st:"RI",age:57,ag:"Dipti"},
+{id:658,d:"2024-12-13",st:"NH",age:41,ag:"Sharon"},
+{id:585,d:"2024-12-16",st:"VT",age:37,ag:"Carlos"},
+{id:707,d:"2024-12-16",st:"NH",age:42,ag:"Maria"},
+{id:1307,d:"2024-12-16",st:"NY",age:32,ag:"Dipti"},
+{id:71,d:"2024-12-17",st:"NH",age:39,ag:"Carlos"},
+{id:313,d:"2024-12-17",st:"NY",age:22,ag:"Carlos"},
+{id:431,d:"2024-12-18",st:"VT",age:28,ag:"Lin"},
+{id:623,d:"2024-12-18",st:"NY",age:69,ag:"Carlos"},
+{id:1324,d:"2024-12-18",st:"MA",age:71,ag:"Carlos"},
+{id:923,d:"2024-12-19",st:"RI",age:28,ag:"Dipti"},
+{id:1486,d:"2024-12-19",st:"CT",age:75,ag:"Carlos"},
+{id:1119,d:"2024-12-20",st:"CT",age:25,ag:"Lin"},
+{id:1333,d:"2024-12-20",st:"ME",age:75,ag:"Tom"},
+{id:795,d:"2024-12-21",st:"RI",age:73,ag:"Dipti"},
+{id:143,d:"2024-12-22",st:"RI",age:65,ag:"Maria"},
+{id:329,d:"2024-12-23",st:"ME",age:30,ag:"Dipti"},
+{id:542,d:"2024-12-23",st:"CT",age:23,ag:"Tom"},
+{id:50,d:"2024-12-24",st:"MA",age:62,ag:"Tom"},
+{id:156,d:"2024-12-24",st:"CT",age:64,ag:"Lin"},
+{id:458,d:"2024-12-24",st:"NH",age:31,ag:"Carlos"},
+{id:109,d:"2024-12-25",st:"CT",age:30,ag:"Tom"},
+{id:119,d:"2024-12-26",st:"RI",age:38,ag:"Dipti"},
+{id:442,d:"2024-12-26",st:"VT",age:49,ag:"Dipti"},
+{id:791,d:"2024-12-26",st:"NH",age:58,ag:"Maria"},
+{id:1009,d:"2024-12-26",st:"ME",age:53,ag:"Lin"},
+{id:1314,d:"2024-12-26",st:"RI",age:62,ag:"Dipti"},
+{id:1388,d:"2024-12-27",st:"NH",age:29,ag:"Tom"},
+{id:432,d:"2024-12-28",st:"NH",age:61,ag:"Dipti"},
+{id:1492,d:"2024-12-28",st:"VT",age:66,ag:"Carlos"},
+{id:96,d:"2024-12-29",st:"NY",age:55,ag:"Sharon"},
+{id:343,d:"2024-12-29",st:"VT",age:43,ag:"Dipti"},
+{id:560,d:"2024-12-29",st:"VT",age:48,ag:"Sharon"},
+{id:1275,d:"2024-12-29",st:"VT",age:55,ag:"Maria"},
+{id:388,d:"2024-12-30",st:"CT",age:75,ag:"Sharon"},
+{id:704,d:"2024-12-31",st:"MA",age:24,ag:"Dipti"},
+{id:864,d:"2025-01-01",st:"VT",age:63,ag:"Carlos"},
+{id:1089,d:"2025-01-01",st:"ME",age:60,ag:"Dipti"},
+{id:325,d:"2025-01-02",st:"ME",age:40,ag:"Maria"},
+{id:363,d:"2025-01-03",st:"VT",age:31,ag:"Sharon"},
+{id:486,d:"2025-01-03",st:"ME",age:49,ag:"Sharon"},
+{id:671,d:"2025-01-03",st:"ME",age:56,ag:"Tom"},
+{id:856,d:"2025-01-03",st:"RI",age:28,ag:"Carlos"},
+{id:1343,d:"2025-01-03",st:"CT",age:38,ag:"Lin"},
+{id:832,d:"2025-01-05",st:"MA",age:44,ag:"Carlos"},
+{id:935,d:"2025-01-05",st:"VT",age:61,ag:"Sharon"},
+{id:175,d:"2025-01-06",st:"RI",age:37,ag:"Sharon"},
+{id:691,d:"2025-01-06",st:"VT",age:75,ag:"Carlos"},
+{id:1088,d:"2025-01-06",st:"RI",age:29,ag:"Sharon"},
+{id:1410,d:"2025-01-07",st:"NH",age:27,ag:"Maria"},
+{id:931,d:"2025-01-08",st:"NH",age:26,ag:"Sharon"},
+{id:944,d:"2025-01-10",st:"VT",age:72,ag:"Sharon"},
+{id:992,d:"2025-01-11",st:"VT",age:62,ag:"Tom"},
+{id:1039,d:"2025-01-11",st:"NH",age:58,ag:"Carlos"},
+{id:1384,d:"2025-01-11",st:"CT",age:70,ag:"Sharon"},
+{id:736,d:"2025-01-12",st:"CT",age:52,ag:"Tom"},
+{id:869,d:"2025-01-12",st:"NH",age:56,ag:"Carlos"},
+{id:1316,d:"2025-01-12",st:"VT",age:50,ag:"Sharon"},
+{id:877,d:"2025-01-13",st:"MA",age:22,ag:"Maria"},
+{id:92,d:"2025-01-14",st:"NH",age:34,ag:"Tom"},
+{id:481,d:"2025-01-14",st:"VT",age:64,ag:"Tom"},
+{id:1220,d:"2025-01-14",st:"ME",age:42,ag:"Sharon"},
+{id:72,d:"2025-01-15",st:"NH",age:56,ag:"Sharon"},
+{id:1292,d:"2025-01-15",st:"VT",age:60,ag:"Lin"},
+{id:188,d:"2025-01-16",st:"ME",age:37,ag:"Tom"},
+{id:261,d:"2025-01-17",st:"CT",age:68,ag:"Maria"},
+{id:676,d:"2025-01-17",st:"RI",age:35,ag:"Tom"},
+{id:933,d:"2025-01-17",st:"NY",age:26,ag:"Tom"},
+{id:459,d:"2025-01-19",st:"NH",age:28,ag:"Tom"},
+{id:1336,d:"2025-01-19",st:"MA",age:43,ag:"Tom"},
+{id:1191,d:"2025-01-21",st:"VT",age:72,ag:"Lin"},
+{id:848,d:"2025-01-22",st:"NH",age:43,ag:"Tom"},
+{id:1186,d:"2025-01-22",st:"MA",age:27,ag:"Tom"},
+{id:728,d:"2025-01-23",st:"VT",age:46,ag:"Tom"},
+{id:783,d:"2025-01-23",st:"NH",age:51,ag:"Carlos"},
+{id:250,d:"2025-01-25",st:"ME",age:67,ag:"Lin"},
+{id:522,d:"2025-01-25",st:"VT",age:31,ag:"Dipti"},
+{id:891,d:"2025-01-25",st:"MA",age:62,ag:"Dipti"},
+{id:60,d:"2025-01-26",st:"VT",age:32,ag:"Tom"},
+{id:172,d:"2025-01-26",st:"VT",age:71,ag:"Dipti"},
+{id:450,d:"2025-01-27",st:"MA",age:27,ag:"Dipti"},
+{id:716,d:"2025-01-27",st:"CT",age:63,ag:"Maria"},
+{id:1317,d:"2025-01-27",st:"VT",age:57,ag:"Tom"},
+{id:219,d:"2025-01-28",st:"ME",age:29,ag:"Maria"},
+{id:1460,d:"2025-01-28",st:"ME",age:64,ag:"Tom"},
+{id:327,d:"2025-01-29",st:"NH",age:51,ag:"Maria"},
+{id:750,d:"2025-01-29",st:"MA",age:65,ag:"Sharon"},
+{id:399,d:"2025-01-30",st:"MA",age:61,ag:"Maria"},
+{id:725,d:"2025-01-30",st:"NY",age:69,ag:"Carlos"},
+{id:1261,d:"2025-01-30",st:"RI",age:64,ag:"Tom"},
+{id:1351,d:"2025-01-30",st:"NH",age:69,ag:"Tom"},
+{id:286,d:"2025-01-31",st:"CT",age:24,ag:"Sharon"},
+{id:304,d:"2025-01-31",st:"VT",age:63,ag:"Lin"},
+{id:307,d:"2025-01-31",st:"CT",age:48,ag:"Tom"},
+{id:512,d:"2025-02-01",st:"RI",age:62,ag:"Tom"},
+{id:576,d:"2025-02-01",st:"RI",age:61,ag:"Dipti"},
+{id:857,d:"2025-02-01",st:"NY",age:75,ag:"Tom"},
+{id:391,d:"2025-02-02",st:"MA",age:31,ag:"Sharon"},
+{id:77,d:"2025-02-03",st:"NY",age:68,ag:"Dipti"},
+{id:648,d:"2025-02-03",st:"NY",age:57,ag:"Sharon"},
+{id:687,d:"2025-02-03",st:"RI",age:41,ag:"Lin"},
+{id:654,d:"2025-02-04",st:"ME",age:55,ag:"Tom"},
+{id:681,d:"2025-02-04",st:"MA",age:39,ag:"Lin"},
+{id:854,d:"2025-02-04",st:"VT",age:63,ag:"Tom"},
+{id:508,d:"2025-02-06",st:"NY",age:58,ag:"Maria"},
+{id:1357,d:"2025-02-07",st:"NY",age:29,ag:"Lin"},
+{id:83,d:"2025-02-08",st:"NH",age:26,ag:"Lin"},
+{id:798,d:"2025-02-08",st:"ME",age:73,ag:"Tom"},
+{id:1170,d:"2025-02-08",st:"MA",age:73,ag:"Sharon"},
+{id:209,d:"2025-02-09",st:"NH",age:25,ag:"Tom"},
+{id:364,d:"2025-02-09",st:"ME",age:38,ag:"Lin"},
+{id:515,d:"2025-02-09",st:"RI",age:24,ag:"Dipti"},
+{id:559,d:"2025-02-09",st:"NY",age:40,ag:"Lin"},
+{id:949,d:"2025-02-09",st:"ME",age:35,ag:"Lin"},
+{id:867,d:"2025-02-10",st:"NH",age:68,ag:"Tom"},
+{id:491,d:"2025-02-11",st:"MA",age:42,ag:"Maria"},
+{id:35,d:"2025-02-12",st:"NH",age:38,ag:"Sharon"},
+{id:1285,d:"2025-02-12",st:"NY",age:22,ag:"Carlos"},
+{id:106,d:"2025-02-13",st:"CT",age:70,ag:"Dipti"},
+{id:689,d:"2025-02-13",st:"NH",age:35,ag:"Maria"},
+{id:936,d:"2025-02-13",st:"MA",age:30,ag:"Tom"},
+{id:991,d:"2025-02-13",st:"MA",age:38,ag:"Carlos"},
+{id:1364,d:"2025-02-13",st:"NH",age:42,ag:"Carlos"},
+{id:1470,d:"2025-02-13",st:"NY",age:72,ag:"Sharon"},
+{id:1474,d:"2025-02-13",st:"ME",age:59,ag:"Maria"},
+{id:180,d:"2025-02-14",st:"NH",age:73,ag:"Lin"},
+{id:345,d:"2025-02-14",st:"MA",age:68,ag:"Sharon"},
+{id:797,d:"2025-02-14",st:"VT",age:25,ag:"Maria"},
+{id:1055,d:"2025-02-14",st:"MA",age:49,ag:"Sharon"},
+{id:1312,d:"2025-02-14",st:"MA",age:45,ag:"Carlos"},
+{id:1423,d:"2025-02-14",st:"CT",age:75,ag:"Lin"},
+{id:1457,d:"2025-02-14",st:"CT",age:45,ag:"Dipti"},
+{id:173,d:"2025-02-15",st:"RI",age:62,ag:"Maria"},
+{id:337,d:"2025-02-15",st:"CT",age:34,ag:"Carlos"},
+{id:288,d:"2025-02-17",st:"MA",age:65,ag:"Sharon"},
+{id:406,d:"2025-02-17",st:"CT",age:64,ag:"Carlos"},
+{id:796,d:"2025-02-17",st:"NH",age:54,ag:"Lin"},
+{id:976,d:"2025-02-18",st:"CT",age:26,ag:"Tom"},
+{id:1484,d:"2025-02-18",st:"NY",age:30,ag:"Sharon"},
+{id:1041,d:"2025-02-19",st:"MA",age:62,ag:"Dipti"},
+{id:1161,d:"2025-02-19",st:"CT",age:51,ag:"Tom"},
+{id:523,d:"2025-02-20",st:"MA",age:73,ag:"Tom"},
+{id:629,d:"2025-02-21",st:"CT",age:45,ag:"Lin"},
+{id:1159,d:"2025-02-21",st:"RI",age:42,ag:"Lin"},
+{id:9,d:"2025-02-22",st:"VT",age:39,ag:"Dipti"},
+{id:509,d:"2025-02-22",st:"ME",age:58,ag:"Carlos"},
+{id:251,d:"2025-02-23",st:"NY",age:23,ag:"Dipti"},
+{id:1450,d:"2025-02-23",st:"MA",age:53,ag:"Lin"},
+{id:636,d:"2025-02-25",st:"NH",age:61,ag:"Tom"},
+{id:1183,d:"2025-02-25",st:"NH",age:24,ag:"Maria"},
+{id:412,d:"2025-02-26",st:"NH",age:45,ag:"Dipti"},
+{id:356,d:"2025-02-27",st:"NH",age:66,ag:"Tom"},
+{id:437,d:"2025-02-27",st:"MA",age:27,ag:"Tom"},
+{id:1394,d:"2025-02-27",st:"RI",age:29,ag:"Maria"},
+{id:279,d:"2025-02-28",st:"CT",age:59,ag:"Lin"},
+{id:1077,d:"2025-02-28",st:"NY",age:35,ag:"Dipti"},
+{id:123,d:"2025-03-01",st:"VT",age:67,ag:"Lin"},
+{id:793,d:"2025-03-01",st:"MA",age:65,ag:"Sharon"},
+{id:270,d:"2025-03-02",st:"CT",age:33,ag:"Dipti"},
+{id:189,d:"2025-03-03",st:"MA",age:67,ag:"Tom"},
+{id:1265,d:"2025-03-03",st:"RI",age:38,ag:"Sharon"},
+{id:1024,d:"2025-03-04",st:"NY",age:29,ag:"Sharon"},
+{id:65,d:"2025-03-05",st:"VT",age:50,ag:"Dipti"},
+{id:298,d:"2025-03-05",st:"MA",age:60,ag:"Dipti"},
+{id:526,d:"2025-03-05",st:"RI",age:55,ag:"Maria"},
+{id:1420,d:"2025-03-05",st:"VT",age:39,ag:"Carlos"},
+{id:236,d:"2025-03-08",st:"NH",age:68,ag:"Maria"},
+{id:932,d:"2025-03-08",st:"CT",age:48,ag:"Tom"},
+{id:1153,d:"2025-03-08",st:"ME",age:30,ag:"Sharon"},
+{id:1280,d:"2025-03-08",st:"NH",age:74,ag:"Carlos"},
+{id:1249,d:"2025-03-09",st:"NH",age:25,ag:"Dipti"},
+{id:1383,d:"2025-03-09",st:"ME",age:30,ag:"Tom"},
+{id:657,d:"2025-03-10",st:"VT",age:25,ag:"Dipti"},
+{id:299,d:"2025-03-11",st:"ME",age:42,ag:"Maria"},
+{id:913,d:"2025-03-11",st:"NH",age:65,ag:"Maria"},
+{id:76,d:"2025-03-12",st:"CT",age:49,ag:"Lin"},
+{id:922,d:"2025-03-12",st:"RI",age:57,ag:"Maria"},
+{id:1248,d:"2025-03-12",st:"ME",age:32,ag:"Maria"},
+{id:492,d:"2025-03-14",st:"VT",age:47,ag:"Carlos"},
+{id:1048,d:"2025-03-14",st:"NY",age:35,ag:"Lin"},
+{id:1062,d:"2025-03-14",st:"ME",age:27,ag:"Carlos"},
+{id:1080,d:"2025-03-14",st:"CT",age:72,ag:"Sharon"},
+{id:1372,d:"2025-03-14",st:"RI",age:49,ag:"Lin"},
+{id:1256,d:"2025-03-16",st:"MA",age:40,ag:"Carlos"},
+{id:618,d:"2025-03-17",st:"NH",age:66,ag:"Lin"},
+{id:982,d:"2025-03-17",st:"RI",age:36,ag:"Lin"},
+{id:291,d:"2025-03-18",st:"MA",age:56,ag:"Sharon"},
+{id:477,d:"2025-03-19",st:"RI",age:60,ag:"Lin"},
+{id:1098,d:"2025-03-20",st:"ME",age:47,ag:"Dipti"},
+{id:1329,d:"2025-03-20",st:"RI",age:44,ag:"Lin"},
+{id:11,d:"2025-03-21",st:"CT",age:39,ag:"Sharon"},
+{id:42,d:"2025-03-21",st:"VT",age:26,ag:"Lin"},
+{id:1067,d:"2025-03-21",st:"ME",age:30,ag:"Lin"},
+{id:429,d:"2025-03-22",st:"VT",age:29,ag:"Carlos"},
+{id:806,d:"2025-03-23",st:"CT",age:46,ag:"Lin"},
+{id:1092,d:"2025-03-23",st:"CT",age:56,ag:"Carlos"},
+{id:1146,d:"2025-03-24",st:"RI",age:25,ag:"Sharon"},
+{id:1238,d:"2025-03-24",st:"NH",age:48,ag:"Lin"},
+{id:723,d:"2025-03-25",st:"NH",age:48,ag:"Carlos"},
+{id:1001,d:"2025-03-25",st:"VT",age:30,ag:"Maria"},
+{id:1400,d:"2025-03-25",st:"NY",age:28,ag:"Maria"},
+{id:1482,d:"2025-03-25",st:"VT",age:66,ag:"Sharon"},
+{id:757,d:"2025-03-26",st:"NY",age:33,ag:"Dipti"},
+{id:588,d:"2025-03-27",st:"NH",age:64,ag:"Carlos"},
+{id:670,d:"2025-03-27",st:"VT",age:62,ag:"Dipti"},
+{id:714,d:"2025-03-27",st:"VT",age:41,ag:"Carlos"},
+{id:195,d:"2025-03-28",st:"MA",age:35,ag:"Lin"},
+{id:386,d:"2025-03-28",st:"NH",age:34,ag:"Sharon"},
+{id:478,d:"2025-03-29",st:"CT",age:35,ag:"Maria"},
+{id:569,d:"2025-03-29",st:"MA",age:47,ag:"Maria"},
+{id:446,d:"2025-03-30",st:"CT",age:74,ag:"Lin"},
+{id:829,d:"2025-03-30",st:"CT",age:39,ag:"Dipti"},
+{id:133,d:"2025-03-31",st:"MA",age:33,ag:"Carlos"},
+{id:872,d:"2025-03-31",st:"NH",age:75,ag:"Carlos"},
+{id:1453,d:"2025-03-31",st:"MA",age:57,ag:"Maria"},
+{id:1485,d:"2025-03-31",st:"VT",age:66,ag:"Carlos"},
+{id:1433,d:"2025-04-01",st:"RI",age:24,ag:"Dipti"},
+{id:455,d:"2025-04-02",st:"CT",age:64,ag:"Lin"},
+{id:1291,d:"2025-04-02",st:"CT",age:46,ag:"Carlos"},
+{id:346,d:"2025-04-03",st:"NY",age:63,ag:"Sharon"},
+{id:285,d:"2025-04-04",st:"RI",age:66,ag:"Maria"},
+{id:194,d:"2025-04-05",st:"CT",age:56,ag:"Lin"},
+{id:87,d:"2025-04-06",st:"RI",age:52,ag:"Sharon"},
+{id:131,d:"2025-04-06",st:"VT",age:69,ag:"Sharon"},
+{id:161,d:"2025-04-07",st:"VT",age:75,ag:"Dipti"},
+{id:886,d:"2025-04-07",st:"RI",age:58,ag:"Sharon"},
+{id:890,d:"2025-04-07",st:"RI",age:46,ag:"Maria"},
+{id:494,d:"2025-04-08",st:"MA",age:42,ag:"Sharon"},
+{id:1344,d:"2025-04-08",st:"RI",age:69,ag:"Dipti"},
+{id:1341,d:"2025-04-09",st:"ME",age:42,ag:"Carlos"},
+{id:1042,d:"2025-04-10",st:"VT",age:69,ag:"Tom"},
+{id:32,d:"2025-04-12",st:"CT",age:26,ag:"Sharon"},
+{id:88,d:"2025-04-12",st:"MA",age:32,ag:"Lin"},
+{id:696,d:"2025-04-12",st:"MA",age:58,ag:"Maria"},
+{id:64,d:"2025-04-14",st:"ME",age:63,ag:"Tom"},
+{id:141,d:"2025-04-14",st:"CT",age:39,ag:"Dipti"},
+{id:447,d:"2025-04-14",st:"RI",age:68,ag:"Dipti"},
+{id:605,d:"2025-04-15",st:"NY",age:56,ag:"Lin"},
+{id:650,d:"2025-04-15",st:"ME",age:68,ag:"Lin"},
+{id:1332,d:"2025-04-16",st:"VT",age:28,ag:"Dipti"},
+{id:1180,d:"2025-04-18",st:"RI",age:23,ag:"Lin"},
+{id:1274,d:"2025-04-18",st:"NY",age:67,ag:"Dipti"},
+{id:1254,d:"2025-04-20",st:"VT",age:57,ag:"Lin"},
+{id:196,d:"2025-04-24",st:"NY",age:59,ag:"Carlos"},
+{id:927,d:"2025-04-25",st:"NY",age:27,ag:"Carlos"},
+{id:1193,d:"2025-04-25",st:"CT",age:33,ag:"Dipti"},
+{id:341,d:"2025-04-27",st:"ME",age:72,ag:"Carlos"},
+{id:926,d:"2025-04-28",st:"MA",age:40,ag:"Lin"},
+{id:370,d:"2025-04-29",st:"NY",age:52,ag:"Dipti"},
+{id:1002,d:"2025-04-30",st:"RI",age:33,ag:"Lin"},
+{id:1187,d:"2025-04-30",st:"NH",age:48,ag:"Sharon"},
+{id:1373,d:"2025-04-30",st:"MA",age:24,ag:"Maria"},
+{id:137,d:"2025-05-01",st:"NY",age:24,ag:"Lin"},
+{id:362,d:"2025-05-01",st:"VT",age:65,ag:"Sharon"},
+{id:1071,d:"2025-05-01",st:"NY",age:74,ag:"Sharon"},
+{id:1190,d:"2025-05-01",st:"NY",age:67,ag:"Tom"},
+{id:43,d:"2025-05-02",st:"VT",age:51,ag:"Maria"},
+{id:1361,d:"2025-05-02",st:"VT",age:41,ag:"Lin"},
+{id:22,d:"2025-05-03",st:"CT",age:51,ag:"Carlos"},
+{id:198,d:"2025-05-03",st:"RI",age:22,ag:"Tom"},
+{id:917,d:"2025-05-03",st:"ME",age:72,ag:"Carlos"},
+{id:938,d:"2025-05-03",st:"NY",age:43,ag:"Lin"},
+{id:28,d:"2025-05-04",st:"CT",age:62,ag:"Carlos"},
+{id:210,d:"2025-05-04",st:"CT",age:35,ag:"Lin"},
+{id:1430,d:"2025-05-04",st:"NY",age:44,ag:"Maria"},
+{id:1239,d:"2025-05-05",st:"CT",age:56,ag:"Lin"},
+{id:807,d:"2025-05-06",st:"RI",age:27,ag:"Carlos"},
+{id:471,d:"2025-05-07",st:"RI",age:51,ag:"Tom"},
+{id:538,d:"2025-05-07",st:"ME",age:72,ag:"Tom"},
+{id:550,d:"2025-05-07",st:"NH",age:32,ag:"Sharon"},
+{id:1245,d:"2025-05-08",st:"NH",age:68,ag:"Dipti"},
+{id:1390,d:"2025-05-08",st:"ME",age:38,ag:"Maria"},
+{id:571,d:"2025-05-09",st:"NH",age:23,ag:"Tom"},
+{id:968,d:"2025-05-09",st:"RI",age:51,ag:"Carlos"},
+{id:570,d:"2025-05-10",st:"NH",age:46,ag:"Dipti"},
+{id:875,d:"2025-05-10",st:"MA",age:61,ag:"Carlos"},
+{id:1465,d:"2025-05-10",st:"ME",age:28,ag:"Dipti"},
+{id:1173,d:"2025-05-11",st:"ME",age:62,ag:"Carlos"},
+{id:398,d:"2025-05-12",st:"MA",age:65,ag:"Sharon"},
+{id:1059,d:"2025-05-12",st:"ME",age:63,ag:"Sharon"},
+{id:1356,d:"2025-05-12",st:"CT",age:59,ag:"Tom"},
+{id:232,d:"2025-05-13",st:"MA",age:54,ag:"Carlos"},
+{id:254,d:"2025-05-15",st:"RI",age:57,ag:"Maria"},
+{id:396,d:"2025-05-15",st:"ME",age:69,ag:"Carlos"},
+{id:516,d:"2025-05-15",st:"NY",age:40,ag:"Dipti"},
+{id:713,d:"2025-05-15",st:"CT",age:65,ag:"Dipti"},
+{id:558,d:"2025-05-16",st:"ME",age:58,ag:"Lin"},
+{id:612,d:"2025-05-16",st:"NY",age:55,ag:"Tom"},
+{id:627,d:"2025-05-17",st:"CT",age:46,ag:"Maria"},
+{id:946,d:"2025-05-19",st:"MA",age:58,ag:"Sharon"},
+{id:1216,d:"2025-05-19",st:"MA",age:45,ag:"Carlos"},
+{id:153,d:"2025-05-20",st:"RI",age:26,ag:"Carlos"},
+{id:1125,d:"2025-05-20",st:"RI",age:31,ag:"Sharon"},
+{id:496,d:"2025-05-22",st:"MA",age:49,ag:"Dipti"},
+{id:647,d:"2025-05-23",st:"VT",age:58,ag:"Tom"},
+{id:919,d:"2025-05-23",st:"MA",age:27,ag:"Dipti"},
+{id:777,d:"2025-05-24",st:"ME",age:37,ag:"Dipti"},
+{id:414,d:"2025-05-25",st:"MA",age:47,ag:"Tom"},
+{id:1007,d:"2025-05-25",st:"MA",age:53,ag:"Sharon"},
+{id:129,d:"2025-05-26",st:"NH",age:65,ag:"Sharon"},
+{id:1166,d:"2025-05-28",st:"RI",age:54,ag:"Dipti"},
+{id:24,d:"2025-05-29",st:"NH",age:64,ag:"Tom"},
+{id:961,d:"2025-05-29",st:"NH",age:63,ag:"Maria"},
+{id:620,d:"2025-05-31",st:"VT",age:49,ag:"Tom"},
+{id:690,d:"2025-05-31",st:"MA",age:25,ag:"Tom"},
+{id:514,d:"2025-06-01",st:"VT",age:26,ag:"Tom"},
+{id:467,d:"2025-06-02",st:"MA",age:33,ag:"Sharon"},
+{id:619,d:"2025-06-02",st:"RI",age:24,ag:"Carlos"},
+{id:139,d:"2025-06-03",st:"CT",age:74,ag:"Sharon"},
+{id:215,d:"2025-06-03",st:"NH",age:63,ag:"Dipti"},
+{id:535,d:"2025-06-03",st:"CT",age:63,ag:"Carlos"},
+{id:231,d:"2025-06-06",st:"VT",age:49,ag:"Carlos"},
+{id:641,d:"2025-06-06",st:"ME",age:26,ag:"Maria"},
+{id:1231,d:"2025-06-06",st:"CT",age:32,ag:"Carlos"},
+{id:660,d:"2025-06-07",st:"VT",age:40,ag:"Dipti"},
+{id:742,d:"2025-06-07",st:"RI",age:63,ag:"Tom"},
+{id:970,d:"2025-06-08",st:"MA",age:52,ag:"Dipti"},
+{id:255,d:"2025-06-09",st:"RI",age:69,ag:"Maria"},
+{id:802,d:"2025-06-09",st:"ME",age:26,ag:"Maria"},
+{id:1192,d:"2025-06-09",st:"VT",age:54,ag:"Tom"},
+{id:1318,d:"2025-06-09",st:"NH",age:75,ag:"Tom"},
+{id:1346,d:"2025-06-10",st:"ME",age:67,ag:"Sharon"},
+{id:233,d:"2025-06-12",st:"MA",age:48,ag:"Lin"},
+{id:1463,d:"2025-06-12",st:"CT",age:75,ag:"Carlos"},
+{id:47,d:"2025-06-13",st:"MA",age:40,ag:"Lin"},
+{id:331,d:"2025-06-13",st:"NY",age:54,ag:"Tom"},
+{id:348,d:"2025-06-15",st:"VT",age:66,ag:"Lin"},
+{id:598,d:"2025-06-15",st:"NY",age:63,ag:"Sharon"},
+{id:865,d:"2025-06-16",st:"CT",age:70,ag:"Lin"},
+{id:1050,d:"2025-06-16",st:"VT",age:58,ag:"Sharon"},
+{id:243,d:"2025-06-17",st:"MA",age:53,ag:"Tom"},
+{id:710,d:"2025-06-17",st:"VT",age:75,ag:"Maria"},
+{id:1218,d:"2025-06-17",st:"CT",age:42,ag:"Sharon"},
+{id:573,d:"2025-06-18",st:"NY",age:31,ag:"Sharon"},
+{id:939,d:"2025-06-19",st:"RI",age:74,ag:"Carlos"},
+{id:134,d:"2025-06-21",st:"NY",age:48,ag:"Carlos"},
+{id:1366,d:"2025-06-21",st:"ME",age:33,ag:"Tom"},
+{id:144,d:"2025-06-22",st:"MA",age:29,ag:"Tom"},
+{id:1230,d:"2025-06-22",st:"ME",age:26,ag:"Sharon"},
+{id:1250,d:"2025-06-22",st:"NH",age:34,ag:"Lin"},
+{id:1296,d:"2025-06-22",st:"ME",age:37,ag:"Dipti"},
+{id:154,d:"2025-06-23",st:"VT",age:42,ag:"Carlos"},
+{id:256,d:"2025-06-23",st:"CT",age:66,ag:"Lin"},
+{id:765,d:"2025-06-23",st:"NH",age:68,ag:"Lin"},
+{id:309,d:"2025-06-24",st:"RI",age:66,ag:"Lin"},
+{id:775,d:"2025-06-24",st:"CT",age:59,ag:"Carlos"},
+{id:422,d:"2025-06-25",st:"NY",age:31,ag:"Maria"},
+{id:400,d:"2025-06-26",st:"VT",age:36,ag:"Carlos"},
+{id:1044,d:"2025-06-26",st:"VT",age:22,ag:"Carlos"},
+{id:1134,d:"2025-06-26",st:"MA",age:57,ag:"Lin"},
+{id:157,d:"2025-06-27",st:"RI",age:66,ag:"Tom"},
+{id:211,d:"2025-06-27",st:"CT",age:70,ag:"Lin"},
+{id:945,d:"2025-06-28",st:"RI",age:39,ag:"Lin"},
+{id:473,d:"2025-06-29",st:"NY",age:58,ag:"Maria"},
+{id:240,d:"2025-07-01",st:"NY",age:37,ag:"Dipti"},
+{id:1493,d:"2025-07-01",st:"ME",age:29,ag:"Tom"},
+{id:164,d:"2025-07-02",st:"RI",age:50,ag:"Lin"},
+{id:853,d:"2025-07-02",st:"NY",age:40,ag:"Lin"},
+{id:1128,d:"2025-07-02",st:"NH",age:48,ag:"Carlos"},
+{id:1375,d:"2025-07-02",st:"NY",age:75,ag:"Maria"},
+{id:308,d:"2025-07-03",st:"ME",age:28,ag:"Sharon"},
+{id:1446,d:"2025-07-03",st:"NH",age:43,ag:"Tom"},
+{id:1129,d:"2025-07-04",st:"CT",age:74,ag:"Dipti"},
+{id:1282,d:"2025-07-04",st:"ME",age:73,ag:"Dipti"},
+{id:678,d:"2025-07-05",st:"ME",age:44,ag:"Lin"},
+{id:708,d:"2025-07-05",st:"NH",age:47,ag:"Maria"},
+{id:834,d:"2025-07-05",st:"ME",age:48,ag:"Lin"},
+{id:1194,d:"2025-07-05",st:"VT",age:36,ag:"Dipti"},
+{id:1156,d:"2025-07-06",st:"RI",age:39,ag:"Sharon"},
+{id:182,d:"2025-07-07",st:"NY",age:50,ag:"Maria"},
+{id:653,d:"2025-07-07",st:"ME",age:26,ag:"Lin"},
+{id:511,d:"2025-07-08",st:"NH",age:50,ag:"Dipti"},
+{id:1451,d:"2025-07-08",st:"MA",age:53,ag:"Carlos"},
+{id:104,d:"2025-07-10",st:"NH",age:38,ag:"Lin"},
+{id:942,d:"2025-07-10",st:"NH",age:47,ag:"Tom"},
+{id:448,d:"2025-07-11",st:"RI",age:42,ag:"Carlos"},
+{id:1070,d:"2025-07-11",st:"CT",age:41,ag:"Sharon"},
+{id:1416,d:"2025-07-11",st:"RI",age:69,ag:"Dipti"},
+{id:457,d:"2025-07-12",st:"CT",age:28,ag:"Maria"},
+{id:973,d:"2025-07-12",st:"CT",age:51,ag:"Sharon"},
+{id:1299,d:"2025-07-13",st:"CT",age:75,ag:"Lin"},
+{id:1308,d:"2025-07-13",st:"ME",age:54,ag:"Lin"},
+{id:383,d:"2025-07-15",st:"NY",age:50,ag:"Dipti"},
+{id:543,d:"2025-07-15",st:"NH",age:35,ag:"Tom"},
+{id:1208,d:"2025-07-15",st:"NH",age:53,ag:"Dipti"},
+{id:128,d:"2025-07-16",st:"CT",age:72,ag:"Dipti"},
+{id:855,d:"2025-07-16",st:"CT",age:45,ag:"Maria"},
+{id:920,d:"2025-07-16",st:"RI",age:45,ag:"Tom"},
+{id:1224,d:"2025-07-17",st:"ME",age:66,ag:"Tom"},
+{id:1355,d:"2025-07-17",st:"RI",age:72,ag:"Tom"},
+{id:617,d:"2025-07-18",st:"RI",age:60,ag:"Carlos"},
+{id:1380,d:"2025-07-18",st:"NH",age:26,ag:"Dipti"},
+{id:280,d:"2025-07-19",st:"VT",age:61,ag:"Dipti"},
+{id:999,d:"2025-07-19",st:"MA",age:33,ag:"Tom"},
+{id:162,d:"2025-07-20",st:"CT",age:35,ag:"Lin"},
+{id:275,d:"2025-07-20",st:"MA",age:37,ag:"Dipti"},
+{id:404,d:"2025-07-20",st:"RI",age:29,ag:"Dipti"},
+{id:1163,d:"2025-07-20",st:"NY",age:67,ag:"Carlos"},
+{id:953,d:"2025-07-21",st:"NH",age:38,ag:"Carlos"},
+{id:434,d:"2025-07-23",st:"RI",age:63,ag:"Dipti"},
+{id:114,d:"2025-07-25",st:"ME",age:28,ag:"Sharon"},
+{id:368,d:"2025-07-25",st:"ME",age:49,ag:"Carlos"},
+{id:712,d:"2025-07-25",st:"RI",age:74,ag:"Dipti"},
+{id:199,d:"2025-07-26",st:"NY",age:46,ag:"Lin"},
+{id:333,d:"2025-07-26",st:"NY",age:59,ag:"Maria"},
+{id:1381,d:"2025-07-26",st:"CT",age:51,ag:"Carlos"},
+{id:674,d:"2025-07-27",st:"RI",age:26,ag:"Carlos"},
+{id:1022,d:"2025-07-27",st:"NY",age:24,ag:"Lin"},
+{id:1253,d:"2025-07-27",st:"NH",age:28,ag:"Dipti"},
+{id:1413,d:"2025-07-28",st:"CT",age:51,ag:"Dipti"},
+{id:862,d:"2025-07-29",st:"NH",age:34,ag:"Tom"},
+{id:915,d:"2025-07-29",st:"NY",age:37,ag:"Carlos"},
+{id:971,d:"2025-07-29",st:"RI",age:27,ag:"Dipti"},
+{id:1185,d:"2025-07-29",st:"RI",age:48,ag:"Maria"},
+{id:252,d:"2025-07-30",st:"NH",age:47,ag:"Carlos"},
+{id:1243,d:"2025-07-30",st:"MA",age:42,ag:"Tom"},
+{id:358,d:"2025-07-31",st:"CT",age:45,ag:"Lin"},
+{id:267,d:"2025-08-01",st:"ME",age:30,ag:"Carlos"},
+{id:1013,d:"2025-08-01",st:"MA",age:39,ag:"Sharon"},
+{id:943,d:"2025-08-02",st:"ME",age:66,ag:"Carlos"},
+{id:1154,d:"2025-08-02",st:"CT",age:42,ag:"Lin"},
+{id:683,d:"2025-08-03",st:"RI",age:61,ag:"Lin"},
+{id:1415,d:"2025-08-03",st:"CT",age:73,ag:"Carlos"},
+{id:1490,d:"2025-08-03",st:"ME",age:44,ag:"Carlos"},
+{id:485,d:"2025-08-04",st:"CT",age:29,ag:"Dipti"},
+{id:1032,d:"2025-08-04",st:"VT",age:39,ag:"Maria"},
+{id:287,d:"2025-08-05",st:"ME",age:40,ag:"Carlos"},
+{id:295,d:"2025-08-05",st:"RI",age:29,ag:"Lin"},
+{id:310,d:"2025-08-05",st:"ME",age:47,ag:"Maria"},
+{id:1005,d:"2025-08-05",st:"NH",age:33,ag:"Tom"},
+{id:366,d:"2025-08-06",st:"ME",age:56,ag:"Sharon"},
+{id:738,d:"2025-08-06",st:"MA",age:58,ag:"Carlos"},
+{id:804,d:"2025-08-07",st:"RI",age:33,ag:"Sharon"},
+{id:880,d:"2025-08-07",st:"MA",age:54,ag:"Carlos"},
+{id:90,d:"2025-08-08",st:"RI",age:66,ag:"Carlos"},
+{id:754,d:"2025-08-08",st:"ME",age:25,ag:"Dipti"},
+{id:555,d:"2025-08-09",st:"NY",age:69,ag:"Lin"},
+{id:565,d:"2025-08-09",st:"MA",age:70,ag:"Sharon"},
+{id:1320,d:"2025-08-09",st:"MA",age:46,ag:"Dipti"},
+{id:480,d:"2025-08-10",st:"ME",age:65,ag:"Maria"},
+{id:532,d:"2025-08-10",st:"CT",age:68,ag:"Carlos"},
+{id:528,d:"2025-08-11",st:"RI",age:48,ag:"Tom"},
+{id:1335,d:"2025-08-11",st:"CT",age:65,ag:"Dipti"},
+{id:241,d:"2025-08-15",st:"RI",age:37,ag:"Lin"},
+{id:212,d:"2025-08-16",st:"NY",age:75,ag:"Lin"},
+{id:305,d:"2025-08-16",st:"NH",age:59,ag:"Lin"},
+{id:187,d:"2025-08-17",st:"NY",age:71,ag:"Maria"},
+{id:1035,d:"2025-08-17",st:"NY",age:63,ag:"Sharon"},
+{id:330,d:"2025-08-18",st:"NY",age:72,ag:"Lin"},
+{id:816,d:"2025-08-18",st:"NH",age:68,ag:"Dipti"},
+{id:2,d:"2025-08-19",st:"NH",age:36,ag:"Sharon"},
+{id:374,d:"2025-08-19",st:"MA",age:58,ag:"Carlos"},
+{id:439,d:"2025-08-19",st:"VT",age:62,ag:"Maria"},
+{id:662,d:"2025-08-19",st:"NH",age:62,ag:"Tom"},
+{id:266,d:"2025-08-20",st:"MA",age:25,ag:"Maria"},
+{id:1368,d:"2025-08-20",st:"NH",age:70,ag:"Sharon"},
+{id:1483,d:"2025-08-20",st:"RI",age:43,ag:"Tom"},
+{id:566,d:"2025-08-21",st:"RI",age:54,ag:"Sharon"},
+{id:764,d:"2025-08-21",st:"NH",age:73,ag:"Dipti"},
+{id:911,d:"2025-08-21",st:"NY",age:50,ag:"Lin"},
+{id:297,d:"2025-08-22",st:"VT",age:56,ag:"Lin"},
+{id:257,d:"2025-08-23",st:"CT",age:38,ag:"Sharon"},
+{id:1040,d:"2025-08-25",st:"ME",age:48,ag:"Lin"},
+{id:1049,d:"2025-08-26",st:"CT",age:75,ag:"Tom"},
+{id:465,d:"2025-08-27",st:"MA",age:33,ag:"Tom"},
+{id:1199,d:"2025-08-28",st:"VT",age:74,ag:"Carlos"},
+{id:428,d:"2025-08-29",st:"MA",age:30,ag:"Carlos"},
+{id:669,d:"2025-08-29",st:"ME",age:35,ag:"Maria"},
+{id:115,d:"2025-08-30",st:"MA",age:28,ag:"Carlos"},
+{id:289,d:"2025-08-30",st:"NY",age:72,ag:"Carlos"},
+{id:395,d:"2025-08-30",st:"VT",age:29,ag:"Lin"},
+{id:732,d:"2025-08-30",st:"VT",age:52,ag:"Sharon"},
+{id:37,d:"2025-08-31",st:"ME",age:59,ag:"Lin"},
+{id:1023,d:"2025-08-31",st:"CT",age:74,ag:"Dipti"},
+{id:397,d:"2025-09-01",st:"VT",age:46,ag:"Carlos"},
+{id:635,d:"2025-09-01",st:"NY",age:38,ag:"Carlos"},
+{id:1095,d:"2025-09-01",st:"NH",age:24,ag:"Dipti"},
+{id:103,d:"2025-09-02",st:"NH",age:64,ag:"Carlos"},
+{id:1434,d:"2025-09-02",st:"ME",age:42,ag:"Dipti"},
+{id:186,d:"2025-09-04",st:"NY",age:37,ag:"Carlos"},
+{id:1113,d:"2025-09-04",st:"NH",age:45,ag:"Sharon"},
+{id:389,d:"2025-09-06",st:"NY",age:52,ag:"Tom"},
+{id:1412,d:"2025-09-07",st:"ME",age:36,ag:"Lin"},
+{id:365,d:"2025-09-08",st:"ME",age:22,ag:"Lin"},
+{id:449,d:"2025-09-08",st:"CT",age:31,ag:"Carlos"},
+{id:841,d:"2025-09-08",st:"NH",age:43,ag:"Carlos"},
+{id:1121,d:"2025-09-08",st:"NY",age:28,ag:"Maria"},
+{id:1468,d:"2025-09-09",st:"VT",age:34,ag:"Sharon"},
+{id:593,d:"2025-09-10",st:"ME",age:23,ag:"Tom"},
+{id:606,d:"2025-09-10",st:"MA",age:70,ag:"Carlos"},
+{id:213,d:"2025-09-11",st:"NY",age:27,ag:"Lin"},
+{id:271,d:"2025-09-11",st:"NY",age:52,ag:"Dipti"},
+{id:312,d:"2025-09-11",st:"CT",age:29,ag:"Lin"},
+{id:884,d:"2025-09-11",st:"NY",age:44,ag:"Tom"},
+{id:1330,d:"2025-09-11",st:"NH",age:51,ag:"Tom"},
+{id:1395,d:"2025-09-11",st:"RI",age:66,ag:"Sharon"},
+{id:44,d:"2025-09-12",st:"VT",age:22,ag:"Carlos"},
+{id:934,d:"2025-09-12",st:"NH",age:68,ag:"Carlos"},
+{id:300,d:"2025-09-13",st:"MA",age:27,ag:"Sharon"},
+{id:369,d:"2025-09-13",st:"RI",age:41,ag:"Sharon"},
+{id:661,d:"2025-09-13",st:"NH",age:62,ag:"Maria"},
+{id:684,d:"2025-09-15",st:"NY",age:32,ag:"Tom"},
+{id:773,d:"2025-09-15",st:"MA",age:38,ag:"Lin"},
+{id:1082,d:"2025-09-15",st:"VT",age:60,ag:"Maria"},
+{id:66,d:"2025-09-16",st:"NH",age:26,ag:"Tom"},
+{id:217,d:"2025-09-16",st:"NH",age:75,ag:"Dipti"},
+{id:682,d:"2025-09-16",st:"NH",age:28,ag:"Dipti"},
+{id:815,d:"2025-09-16",st:"RI",age:44,ag:"Sharon"},
+{id:1081,d:"2025-09-16",st:"CT",age:63,ag:"Dipti"},
+{id:36,d:"2025-09-17",st:"ME",age:57,ag:"Maria"},
+{id:100,d:"2025-09-17",st:"VT",age:60,ag:"Dipti"},
+{id:733,d:"2025-09-17",st:"CT",age:57,ag:"Tom"},
+{id:253,d:"2025-09-20",st:"CT",age:64,ag:"Maria"},
+{id:497,d:"2025-09-20",st:"RI",age:59,ag:"Lin"},
+{id:74,d:"2025-09-21",st:"NY",age:52,ag:"Lin"},
+{id:747,d:"2025-09-21",st:"MA",age:64,ag:"Maria"},
+{id:851,d:"2025-09-21",st:"ME",age:60,ag:"Carlos"},
+{id:248,d:"2025-09-22",st:"ME",age:48,ag:"Lin"},
+{id:883,d:"2025-09-23",st:"NH",age:61,ag:"Maria"},
+{id:56,d:"2025-09-24",st:"MA",age:37,ag:"Maria"},
+{id:338,d:"2025-09-25",st:"VT",age:46,ag:"Sharon"},
+{id:132,d:"2025-09-27",st:"NY",age:32,ag:"Sharon"},
+{id:371,d:"2025-09-27",st:"RI",age:58,ag:"Tom"},
+{id:646,d:"2025-09-27",st:"NY",age:53,ag:"Dipti"},
+{id:1203,d:"2025-09-27",st:"VT",age:42,ag:"Carlos"},
+{id:504,d:"2025-09-28",st:"MA",age:31,ag:"Tom"},
+{id:774,d:"2025-09-28",st:"RI",age:70,ag:"Tom"},
+{id:1273,d:"2025-09-28",st:"RI",age:41,ag:"Dipti"},
+{id:99,d:"2025-09-29",st:"RI",age:29,ag:"Maria"},
+{id:190,d:"2025-09-29",st:"CT",age:43,ag:"Tom"},
+{id:405,d:"2025-09-29",st:"VT",age:30,ag:"Lin"},
+{id:556,d:"2025-09-30",st:"VT",age:37,ag:"Tom"},
+{id:823,d:"2025-09-30",st:"VT",age:35,ag:"Dipti"},
+{id:6,d:"2025-10-01",st:"VT",age:60,ag:"Dipti"},
+{id:1141,d:"2025-10-01",st:"VT",age:44,ag:"Carlos"},
+{id:1148,d:"2025-10-02",st:"NY",age:55,ag:"Lin"},
+{id:192,d:"2025-10-03",st:"RI",age:66,ag:"Sharon"},
+{id:873,d:"2025-10-03",st:"MA",age:67,ag:"Sharon"},
+{id:488,d:"2025-10-04",st:"VT",age:57,ag:"Carlos"},
+{id:863,d:"2025-10-04",st:"RI",age:58,ag:"Sharon"},
+{id:31,d:"2025-10-05",st:"NY",age:24,ag:"Tom"},
+{id:912,d:"2025-10-06",st:"CT",age:57,ag:"Lin"},
+{id:1386,d:"2025-10-06",st:"NH",age:68,ag:"Sharon"},
+{id:264,d:"2025-10-07",st:"CT",age:33,ag:"Tom"},
+{id:1270,d:"2025-10-07",st:"VT",age:25,ag:"Lin"},
+{id:748,d:"2025-10-08",st:"ME",age:36,ag:"Dipti"},
+{id:323,d:"2025-10-09",st:"NY",age:29,ag:"Lin"},
+{id:734,d:"2025-10-09",st:"CT",age:71,ag:"Tom"},
+{id:645,d:"2025-10-10",st:"MA",age:34,ag:"Sharon"},
+{id:1327,d:"2025-10-10",st:"CT",age:60,ag:"Tom"},
+{id:140,d:"2025-10-11",st:"MA",age:64,ag:"Sharon"},
+{id:138,d:"2025-10-12",st:"NH",age:74,ag:"Lin"},
+{id:1354,d:"2025-10-12",st:"CT",age:36,ag:"Carlos"},
+{id:1322,d:"2025-10-13",st:"ME",age:36,ag:"Carlos"},
+{id:202,d:"2025-10-15",st:"CT",age:49,ag:"Lin"},
+{id:1210,d:"2025-10-15",st:"MA",age:55,ag:"Lin"},
+{id:220,d:"2025-10-16",st:"RI",age:66,ag:"Tom"},
+{id:1020,d:"2025-10-16",st:"RI",age:28,ag:"Carlos"},
+{id:93,d:"2025-10-17",st:"MA",age:59,ag:"Carlos"},
+{id:12,d:"2025-10-19",st:"NY",age:43,ag:"Dipti"},
+{id:445,d:"2025-10-19",st:"RI",age:50,ag:"Sharon"},
+{id:1182,d:"2025-10-20",st:"NH",age:39,ag:"Tom"},
+{id:62,d:"2025-10-23",st:"VT",age:70,ag:"Carlos"},
+{id:484,d:"2025-10-23",st:"NY",age:30,ag:"Tom"},
+{id:1278,d:"2025-10-23",st:"NY",age:34,ag:"Sharon"},
+{id:1387,d:"2025-10-23",st:"ME",age:23,ag:"Maria"},
+{id:1025,d:"2025-10-25",st:"NY",age:69,ag:"Maria"},
+{id:727,d:"2025-10-27",st:"VT",age:42,ag:"Carlos"},
+{id:819,d:"2025-10-28",st:"MA",age:28,ag:"Maria"},
+{id:1323,d:"2025-10-28",st:"CT",age:63,ag:"Lin"},
+{id:1085,d:"2025-10-29",st:"VT",age:60,ag:"Maria"},
+{id:1396,d:"2025-10-29",st:"ME",age:65,ag:"Carlos"},
+{id:852,d:"2025-10-30",st:"RI",age:37,ag:"Maria"},
+{id:118,d:"2025-10-31",st:"ME",age:62,ag:"Tom"},
+{id:724,d:"2025-10-31",st:"RI",age:54,ag:"Maria"},
+{id:858,d:"2025-10-31",st:"CT",age:42,ag:"Lin"},
+{id:603,d:"2025-11-02",st:"MA",age:72,ag:"Sharon"},
+{id:1363,d:"2025-11-03",st:"CT",age:48,ag:"Maria"},
+{id:1489,d:"2025-11-03",st:"NH",age:61,ag:"Carlos"},
+{id:753,d:"2025-11-04",st:"NY",age:40,ag:"Tom"},
+{id:1374,d:"2025-11-04",st:"ME",age:45,ag:"Dipti"},
+{id:1500,d:"2025-11-04",st:"CT",age:70,ag:"Sharon"},
+{id:52,d:"2025-11-05",st:"NH",age:45,ag:"Sharon"},
+{id:703,d:"2025-11-05",st:"VT",age:54,ag:"Lin"},
+{id:1313,d:"2025-11-05",st:"CT",age:45,ag:"Lin"},
+{id:1403,d:"2025-11-05",st:"VT",age:34,ag:"Tom"},
+{id:505,d:"2025-11-06",st:"NH",age:60,ag:"Sharon"},
+{id:1176,d:"2025-11-06",st:"ME",age:50,ag:"Sharon"},
+{id:174,d:"2025-11-09",st:"ME",age:66,ag:"Lin"},
+{id:697,d:"2025-11-09",st:"CT",age:57,ag:"Tom"},
+{id:1008,d:"2025-11-09",st:"NY",age:46,ag:"Maria"},
+{id:1360,d:"2025-11-09",st:"VT",age:29,ag:"Carlos"},
+{id:502,d:"2025-11-10",st:"NY",age:44,ag:"Tom"},
+{id:19,d:"2025-11-12",st:"ME",age:26,ag:"Dipti"},
+{id:81,d:"2025-11-12",st:"NH",age:56,ag:"Lin"},
+{id:607,d:"2025-11-13",st:"CT",age:44,ag:"Dipti"},
+{id:722,d:"2025-11-13",st:"MA",age:50,ag:"Tom"},
+{id:1376,d:"2025-11-13",st:"MA",age:65,ag:"Dipti"},
+{id:75,d:"2025-11-14",st:"MA",age:28,ag:"Carlos"},
+{id:379,d:"2025-11-14",st:"VT",age:38,ag:"Carlos"},
+{id:415,d:"2025-11-14",st:"MA",age:74,ag:"Lin"},
+{id:1086,d:"2025-11-15",st:"ME",age:47,ag:"Tom"},
+{id:315,d:"2025-11-16",st:"VT",age:45,ag:"Maria"},
+{id:846,d:"2025-11-16",st:"NY",age:70,ag:"Maria"},
+{id:1339,d:"2025-11-16",st:"NH",age:55,ag:"Sharon"},
+{id:611,d:"2025-11-17",st:"RI",age:66,ag:"Lin"},
+{id:990,d:"2025-11-17",st:"CT",age:42,ag:"Sharon"},
+{id:1264,d:"2025-11-17",st:"RI",age:24,ag:"Tom"},
+{id:759,d:"2025-11-18",st:"ME",age:40,ag:"Dipti"},
+{id:260,d:"2025-11-19",st:"NH",age:35,ag:"Carlos"},
+{id:772,d:"2025-11-19",st:"NH",age:52,ag:"Tom"},
+{id:1263,d:"2025-11-19",st:"CT",age:46,ag:"Tom"},
+{id:1422,d:"2025-11-21",st:"MA",age:47,ag:"Lin"},
+{id:244,d:"2025-11-22",st:"RI",age:35,ag:"Tom"},
+{id:1365,d:"2025-11-24",st:"NY",age:27,ag:"Lin"},
+{id:145,d:"2025-11-26",st:"VT",age:38,ag:"Dipti"},
+{id:810,d:"2025-11-26",st:"VT",age:47,ag:"Maria"},
+{id:507,d:"2025-11-27",st:"NY",age:62,ag:"Lin"},
+{id:1213,d:"2025-11-27",st:"NY",age:42,ag:"Dipti"},
+{id:769,d:"2025-11-29",st:"VT",age:62,ag:"Lin"},
+{id:160,d:"2025-11-30",st:"VT",age:58,ag:"Tom"},
+{id:644,d:"2025-11-30",st:"NY",age:45,ag:"Maria"},
+{id:729,d:"2025-12-01",st:"RI",age:56,ag:"Tom"},
+{id:1004,d:"2025-12-01",st:"VT",age:32,ag:"Lin"},
+{id:1326,d:"2025-12-01",st:"VT",age:73,ag:"Dipti"},
+{id:1479,d:"2025-12-01",st:"ME",age:74,ag:"Sharon"},
+{id:525,d:"2025-12-02",st:"MA",age:37,ag:"Carlos"},
+{id:639,d:"2025-12-02",st:"ME",age:50,ag:"Dipti"},
+{id:1093,d:"2025-12-02",st:"NY",age:52,ag:"Dipti"},
+{id:361,d:"2025-12-04",st:"NH",age:27,ag:"Maria"},
+{id:868,d:"2025-12-05",st:"NH",age:68,ag:"Maria"},
+{id:929,d:"2025-12-05",st:"ME",age:46,ag:"Sharon"},
+{id:1031,d:"2025-12-06",st:"CT",age:67,ag:"Tom"},
+{id:1179,d:"2025-12-06",st:"VT",age:49,ag:"Carlos"},
+{id:205,d:"2025-12-09",st:"NY",age:51,ag:"Sharon"},
+{id:1445,d:"2025-12-09",st:"MA",age:70,ag:"Lin"},
+{id:1385,d:"2025-12-10",st:"NY",age:47,ag:"Dipti"},
+{id:1466,d:"2025-12-10",st:"RI",age:30,ag:"Carlos"},
+{id:902,d:"2025-12-12",st:"VT",age:37,ag:"Maria"},
+{id:1242,d:"2025-12-12",st:"RI",age:26,ag:"Dipti"},
+{id:1321,d:"2025-12-12",st:"NY",age:58,ag:"Sharon"},
+{id:659,d:"2025-12-13",st:"CT",age:67,ag:"Sharon"},
+{id:136,d:"2025-12-15",st:"NY",age:66,ag:"Dipti"},
+{id:624,d:"2025-12-15",st:"MA",age:31,ag:"Maria"},
+{id:779,d:"2025-12-15",st:"RI",age:65,ag:"Maria"},
+{id:1057,d:"2025-12-16",st:"NY",age:39,ag:"Dipti"},
+{id:48,d:"2025-12-17",st:"RI",age:22,ag:"Carlos"},
+{id:111,d:"2025-12-17",st:"RI",age:75,ag:"Maria"},
+{id:472,d:"2025-12-17",st:"CT",age:41,ag:"Carlos"},
+{id:1219,d:"2025-12-17",st:"ME",age:49,ag:"Carlos"},
+{id:1444,d:"2025-12-18",st:"VT",age:52,ag:"Lin"},
+{id:665,d:"2025-12-21",st:"NH",age:64,ag:"Maria"},
+{id:918,d:"2025-12-21",st:"ME",age:46,ag:"Tom"},
+{id:954,d:"2025-12-21",st:"ME",age:49,ag:"Lin"},
+{id:1255,d:"2025-12-21",st:"MA",age:45,ag:"Dipti"},
+{id:1100,d:"2025-12-22",st:"CT",age:27,ag:"Tom"},
+{id:342,d:"2025-12-23",st:"RI",age:24,ag:"Sharon"},
+{id:1076,d:"2025-12-23",st:"RI",age:61,ag:"Carlos"},
+{id:1140,d:"2025-12-24",st:"MA",age:48,ag:"Dipti"},
+{id:1267,d:"2025-12-24",st:"NY",age:66,ag:"Carlos"},
+{id:792,d:"2025-12-25",st:"NH",age:42,ag:"Maria"},
+{id:835,d:"2025-12-26",st:"CT",age:46,ag:"Sharon"},
+{id:1442,d:"2025-12-26",st:"NY",age:74,ag:"Maria"},
+{id:127,d:"2025-12-27",st:"RI",age:30,ag:"Dipti"},
+{id:720,d:"2025-12-27",st:"NY",age:65,ag:"Sharon"},
+{id:1165,d:"2025-12-27",st:"MA",age:67,ag:"Sharon"},
+{id:1281,d:"2025-12-27",st:"NY",age:60,ag:"Tom"},
+{id:171,d:"2025-12-28",st:"MA",age:24,ag:"Sharon"},
+{id:359,d:"2025-12-29",st:"NH",age:55,ag:"Lin"},
+{id:860,d:"2025-12-29",st:"MA",age:38,ag:"Maria"},
+{id:1037,d:"2025-12-29",st:"ME",age:42,ag:"Sharon"},
+{id:328,d:"2025-12-30",st:"RI",age:34,ag:"Maria"},
+{id:1499,d:"2025-12-30",st:"MA",age:64,ag:"Dipti"},
+{id:586,d:"2025-12-31",st:"CT",age:49,ag:"Dipti"},
+{id:838,d:"2025-12-31",st:"NY",age:51,ag:"Dipti"},
+{id:1294,d:"2025-12-31",st:"VT",age:60,ag:"Carlos"},
+{id:828,d:"2026-01-01",st:"ME",age:55,ag:"Sharon"},
+{id:469,d:"2026-01-02",st:"ME",age:62,ag:"Dipti"},
+{id:1215,d:"2026-01-02",st:"NY",age:29,ag:"Maria"},
+{id:82,d:"2026-01-04",st:"RI",age:33,ag:"Tom"},
+{id:824,d:"2026-01-04",st:"VT",age:40,ag:"Sharon"},
+{id:905,d:"2026-01-04",st:"NY",age:66,ag:"Carlos"},
+{id:1342,d:"2026-01-04",st:"ME",age:23,ag:"Carlos"},
+{id:930,d:"2026-01-05",st:"CT",age:41,ag:"Tom"},
+{id:1028,d:"2026-01-05",st:"NY",age:35,ag:"Sharon"},
+{id:39,d:"2026-01-06",st:"VT",age:53,ag:"Dipti"},
+{id:562,d:"2026-01-06",st:"NY",age:38,ag:"Dipti"},
+{id:545,d:"2026-01-07",st:"NH",age:26,ag:"Tom"},
+{id:705,d:"2026-01-07",st:"ME",age:43,ag:"Lin"},
+{id:638,d:"2026-01-09",st:"NY",age:26,ag:"Lin"},
+{id:1309,d:"2026-01-09",st:"NY",age:55,ag:"Maria"},
+{id:694,d:"2026-01-10",st:"CT",age:68,ag:"Tom"},
+{id:763,d:"2026-01-10",st:"NY",age:54,ag:"Lin"},
+{id:998,d:"2026-01-10",st:"CT",age:29,ag:"Sharon"},
+{id:1301,d:"2026-01-10",st:"CT",age:69,ag:"Lin"},
+{id:1475,d:"2026-01-10",st:"RI",age:22,ag:"Maria"},
+{id:597,d:"2026-01-11",st:"MA",age:44,ag:"Maria"},
+{id:1151,d:"2026-01-11",st:"ME",age:74,ag:"Lin"},
+{id:1091,d:"2026-01-12",st:"RI",age:75,ag:"Maria"},
+{id:1426,d:"2026-01-12",st:"ME",age:68,ag:"Dipti"},
+{id:1491,d:"2026-01-12",st:"ME",age:63,ag:"Sharon"},
+{id:105,d:"2026-01-13",st:"ME",age:63,ag:"Tom"},
+{id:679,d:"2026-01-14",st:"NY",age:45,ag:"Maria"},
+{id:1172,d:"2026-01-14",st:"NH",age:74,ag:"Lin"},
+{id:1432,d:"2026-01-14",st:"RI",age:53,ag:"Dipti"},
+{id:487,d:"2026-01-15",st:"RI",age:56,ag:"Carlos"},
+{id:1371,d:"2026-01-15",st:"VT",age:49,ag:"Carlos"},
+{id:655,d:"2026-01-16",st:"NY",age:71,ag:"Maria"},
+{id:811,d:"2026-01-17",st:"ME",age:36,ag:"Dipti"},
+{id:1225,d:"2026-01-17",st:"NH",age:68,ag:"Dipti"},
+{id:626,d:"2026-01-18",st:"MA",age:37,ag:"Carlos"},
+{id:1178,d:"2026-01-22",st:"MA",age:51,ag:"Dipti"},
+{id:581,d:"2026-01-23",st:"MA",age:37,ag:"Lin"},
+{id:1171,d:"2026-01-23",st:"MA",age:25,ag:"Sharon"},
+{id:258,d:"2026-01-24",st:"ME",age:34,ag:"Tom"},
+{id:1160,d:"2026-01-24",st:"VT",age:44,ag:"Sharon"},
+{id:1469,d:"2026-01-24",st:"NY",age:47,ag:"Sharon"},
+{id:259,d:"2026-01-25",st:"ME",age:56,ag:"Carlos"},
+{id:1162,d:"2026-01-25",st:"MA",age:32,ag:"Carlos"},
+{id:324,d:"2026-01-27",st:"ME",age:75,ag:"Sharon"},
+{id:781,d:"2026-01-27",st:"ME",age:40,ag:"Tom"},
+{id:850,d:"2026-01-27",st:"ME",age:70,ag:"Lin"},
+{id:1115,d:"2026-01-27",st:"NY",age:23,ag:"Tom"},
+{id:403,d:"2026-01-28",st:"NH",age:24,ag:"Dipti"},
+{id:1107,d:"2026-01-29",st:"RI",age:61,ag:"Maria"},
+{id:479,d:"2026-01-31",st:"CT",age:49,ag:"Dipti"},
+{id:1017,d:"2026-01-31",st:"CT",age:71,ag:"Maria"},
+{id:1402,d:"2026-01-31",st:"NY",age:28,ag:"Lin"},
+{id:1287,d:"2026-02-01",st:"RI",age:31,ag:"Sharon"},
+{id:55,d:"2026-02-02",st:"CT",age:75,ag:"Tom"},
+{id:1409,d:"2026-02-03",st:"NY",age:58,ag:"Carlos"},
+{id:425,d:"2026-02-04",st:"ME",age:23,ag:"Sharon"},
+{id:146,d:"2026-02-05",st:"VT",age:49,ag:"Tom"},
+{id:979,d:"2026-02-05",st:"ME",age:73,ag:"Sharon"},
+{id:1158,d:"2026-02-05",st:"NH",age:28,ag:"Sharon"},
+{id:224,d:"2026-02-06",st:"VT",age:23,ag:"Tom"},
+{id:761,d:"2026-02-07",st:"CT",age:40,ag:"Lin"},
+{id:882,d:"2026-02-07",st:"MA",age:55,ag:"Sharon"},
+{id:234,d:"2026-02-08",st:"RI",age:45,ag:"Carlos"},
+{id:1289,d:"2026-02-08",st:"VT",age:71,ag:"Dipti"},
+{id:1244,d:"2026-02-09",st:"MA",age:43,ag:"Sharon"},
+{id:1145,d:"2026-02-10",st:"NH",age:55,ag:"Sharon"},
+{id:1480,d:"2026-02-10",st:"RI",age:64,ag:"Maria"},
+{id:564,d:"2026-02-11",st:"ME",age:55,ag:"Dipti"},
+{id:1379,d:"2026-02-11",st:"RI",age:54,ag:"Maria"},
+{id:228,d:"2026-02-12",st:"ME",age:71,ag:"Tom"},
+{id:921,d:"2026-02-12",st:"NH",age:27,ag:"Sharon"},
+{id:1240,d:"2026-02-13",st:"NY",age:52,ag:"Maria"},
+{id:1398,d:"2026-02-13",st:"ME",age:55,ag:"Tom"},
+{id:108,d:"2026-02-14",st:"MA",age:56,ag:"Sharon"},
+{id:263,d:"2026-02-14",st:"NY",age:34,ag:"Tom"},
+{id:749,d:"2026-02-14",st:"RI",age:43,ag:"Carlos"},
+{id:1078,d:"2026-02-14",st:"NH",age:70,ag:"Dipti"},
+{id:1198,d:"2026-02-14",st:"NH",age:64,ag:"Sharon"},
+{id:1414,d:"2026-02-14",st:"NY",age:33,ag:"Dipti"},
+{id:572,d:"2026-02-15",st:"NY",age:67,ag:"Carlos"},
+{id:1053,d:"2026-02-15",st:"ME",age:72,ag:"Lin"},
+{id:965,d:"2026-02-16",st:"CT",age:36,ag:"Maria"},
+{id:382,d:"2026-02-17",st:"ME",age:63,ag:"Dipti"},
+{id:701,d:"2026-02-17",st:"RI",age:45,ag:"Tom"},
+{id:975,d:"2026-02-17",st:"RI",age:68,ag:"Carlos"},
+{id:1258,d:"2026-02-17",st:"MA",age:35,ag:"Sharon"},
+{id:1268,d:"2026-02-17",st:"MA",age:64,ag:"Tom"},
+{id:1063,d:"2026-02-19",st:"MA",age:35,ag:"Lin"},
+{id:1417,d:"2026-02-19",st:"NY",age:70,ag:"Dipti"},
+{id:531,d:"2026-02-20",st:"VT",age:65,ag:"Lin"},
+{id:86,d:"2026-02-21",st:"NY",age:37,ag:"Sharon"},
+{id:169,d:"2026-02-21",st:"NY",age:70,ag:"Sharon"},
+{id:451,d:"2026-02-21",st:"RI",age:28,ag:"Carlos"},
+{id:541,d:"2026-02-21",st:"ME",age:64,ag:"Lin"},
+{id:1045,d:"2026-02-21",st:"ME",age:51,ag:"Carlos"},
+{id:1421,d:"2026-02-21",st:"CT",age:74,ag:"Tom"},
+{id:13,d:"2026-02-22",st:"RI",age:28,ag:"Tom"},
+{id:120,d:"2026-02-22",st:"ME",age:49,ag:"Tom"},
+{id:1177,d:"2026-02-22",st:"NY",age:75,ag:"Tom"},
+{id:416,d:"2026-02-23",st:"ME",age:35,ag:"Carlos"},
+{id:470,d:"2026-02-23",st:"ME",age:55,ag:"Sharon"},
+{id:1262,d:"2026-02-23",st:"ME",age:56,ag:"Lin"},
+{id:385,d:"2026-02-24",st:"CT",age:42,ag:"Carlos"},
+{id:394,d:"2026-02-24",st:"NY",age:47,ag:"Dipti"},
+{id:1209,d:"2026-02-24",st:"MA",age:36,ag:"Maria"},
+{id:924,d:"2026-02-25",st:"CT",age:57,ag:"Dipti"},
+{id:1304,d:"2026-02-25",st:"NH",age:50,ag:"Sharon"},
+{id:1232,d:"2026-02-26",st:"NY",age:67,ag:"Carlos"},
+{id:1283,d:"2026-02-27",st:"RI",age:57,ag:"Lin"},
+{id:771,d:"2026-02-28",st:"RI",age:64,ag:"Dipti"},
+{id:589,d:"2026-03-01",st:"VT",age:45,ag:"Dipti"},
+{id:474,d:"2026-03-02",st:"MA",age:31,ag:"Sharon"},
+{id:1150,d:"2026-03-02",st:"VT",age:28,ag:"Maria"},
+{id:1174,d:"2026-03-02",st:"VT",age:59,ag:"Tom"},
+{id:208,d:"2026-03-03",st:"ME",age:49,ag:"Sharon"},
+{id:1012,d:"2026-03-04",st:"VT",age:23,ag:"Sharon"},
+{id:283,d:"2026-03-05",st:"NH",age:37,ag:"Sharon"},
+{id:476,d:"2026-03-05",st:"CT",age:50,ag:"Carlos"},
+{id:534,d:"2026-03-05",st:"VT",age:64,ag:"Sharon"},
+{id:21,d:"2026-03-07",st:"NY",age:36,ag:"Dipti"},
+{id:577,d:"2026-03-07",st:"MA",age:38,ag:"Sharon"},
+{id:616,d:"2026-03-07",st:"CT",age:64,ag:"Tom"},
+{id:57,d:"2026-03-08",st:"MA",age:68,ag:"Lin"},
+{id:614,d:"2026-03-08",st:"RI",age:60,ag:"Sharon"},
+{id:842,d:"2026-03-08",st:"RI",age:45,ag:"Dipti"},
+{id:906,d:"2026-03-08",st:"VT",age:69,ag:"Tom"},
+{id:1101,d:"2026-03-08",st:"VT",age:35,ag:"Sharon"},
+{id:1449,d:"2026-03-08",st:"RI",age:50,ag:"Maria"},
+{id:1064,d:"2026-03-09",st:"NH",age:59,ag:"Sharon"},
+{id:347,d:"2026-03-12",st:"RI",age:72,ag:"Tom"},
+{id:897,d:"2026-03-12",st:"ME",age:39,ag:"Maria"},
+{id:1152,d:"2026-03-12",st:"VT",age:58,ag:"Dipti"},
+{id:1157,d:"2026-03-12",st:"NH",age:30,ag:"Maria"},
+{id:1411,d:"2026-03-12",st:"ME",age:68,ag:"Dipti"},
+{id:273,d:"2026-03-13",st:"VT",age:62,ag:"Carlos"},
+{id:367,d:"2026-03-13",st:"RI",age:44,ag:"Maria"},
+{id:698,d:"2026-03-13",st:"RI",age:54,ag:"Lin"},
+{id:916,d:"2026-03-13",st:"MA",age:39,ag:"Sharon"},
+{id:955,d:"2026-03-13",st:"RI",age:60,ag:"Lin"},
+{id:293,d:"2026-03-15",st:"MA",age:32,ag:"Tom"},
+{id:1068,d:"2026-03-16",st:"NH",age:46,ag:"Dipti"},
+{id:98,d:"2026-03-18",st:"VT",age:26,ag:"Carlos"},
+{id:110,d:"2026-03-18",st:"NH",age:45,ag:"Tom"},
+{id:951,d:"2026-03-18",st:"NY",age:72,ag:"Lin"},
+{id:1133,d:"2026-03-18",st:"RI",age:40,ag:"Tom"},
+{id:70,d:"2026-03-19",st:"MA",age:43,ag:"Dipti"},
+{id:430,d:"2026-03-23",st:"RI",age:50,ag:"Tom"},
+{id:1117,d:"2026-03-23",st:"CT",age:67,ag:"Maria"},
+{id:401,d:"2026-03-24",st:"ME",age:74,ag:"Lin"},
+{id:583,d:"2026-03-24",st:"MA",age:75,ag:"Lin"},
+{id:726,d:"2026-03-25",st:"ME",age:30,ag:"Maria"},
+{id:79,d:"2026-03-26",st:"RI",age:68,ag:"Tom"},
+{id:435,d:"2026-03-26",st:"RI",age:47,ag:"Lin"},
+{id:675,d:"2026-03-27",st:"NH",age:50,ag:"Lin"},
+{id:803,d:"2026-03-27",st:"MA",age:52,ag:"Dipti"},
+{id:870,d:"2026-03-28",st:"VT",age:24,ag:"Dipti"},
+{id:1106,d:"2026-03-29",st:"NH",age:27,ag:"Lin"},
+{id:95,d:"2026-03-30",st:"MA",age:59,ag:"Lin"},
+{id:97,d:"2026-03-30",st:"VT",age:27,ag:"Sharon"},
+{id:1340,d:"2026-03-30",st:"NY",age:73,ag:"Maria"},
+{id:1200,d:"2026-03-31",st:"NY",age:36,ag:"Maria"},
+{id:483,d:"2026-04-01",st:"MA",age:35,ag:"Tom"},
+{id:1108,d:"2026-04-01",st:"CT",age:64,ag:"Carlos"},
+{id:1362,d:"2026-04-02",st:"NY",age:31,ag:"Sharon"},
+{id:274,d:"2026-04-03",st:"NH",age:31,ag:"Maria"},
+{id:907,d:"2026-04-03",st:"MA",age:49,ag:"Sharon"},
+{id:1358,d:"2026-04-03",st:"NY",age:62,ag:"Maria"},
+{id:1060,d:"2026-04-04",st:"RI",age:62,ag:"Tom"},
+{id:844,d:"2026-04-05",st:"CT",age:46,ag:"Carlos"},
+{id:85,d:"2026-04-06",st:"ME",age:56,ag:"Dipti"},
+{id:179,d:"2026-04-06",st:"VT",age:37,ag:"Dipti"},
+{id:1447,d:"2026-04-06",st:"VT",age:36,ag:"Maria"},
+{id:1237,d:"2026-04-08",st:"RI",age:50,ag:"Carlos"},
+{id:1393,d:"2026-04-08",st:"ME",age:29,ag:"Lin"},
+{id:1472,d:"2026-04-10",st:"ME",age:75,ag:"Carlos"},
+{id:482,d:"2026-04-11",st:"NH",age:47,ag:"Maria"},
+{id:668,d:"2026-04-11",st:"ME",age:71,ag:"Maria"},
+{id:859,d:"2026-04-11",st:"VT",age:36,ag:"Carlos"},
+{id:121,d:"2026-04-12",st:"MA",age:43,ag:"Sharon"},
+{id:962,d:"2026-04-12",st:"VT",age:63,ag:"Carlos"},
+{id:977,d:"2026-04-12",st:"NY",age:67,ag:"Dipti"},
+{id:553,d:"2026-04-13",st:"RI",age:45,ag:"Carlos"},
+{id:592,d:"2026-04-13",st:"ME",age:46,ag:"Tom"},
+{id:741,d:"2026-04-14",st:"CT",age:67,ag:"Dipti"},
+{id:895,d:"2026-04-14",st:"NH",age:35,ag:"Carlos"},
+{id:1279,d:"2026-04-14",st:"RI",age:27,ag:"Carlos"},
+{id:520,d:"2026-04-15",st:"RI",age:73,ag:"Maria"},
+{id:604,d:"2026-04-15",st:"CT",age:41,ag:"Maria"},
+{id:667,d:"2026-04-15",st:"NY",age:23,ag:"Dipti"},
+{id:1406,d:"2026-04-17",st:"VT",age:53,ag:"Sharon"},
+{id:574,d:"2026-04-18",st:"CT",age:75,ag:"Lin"},
+{id:1293,d:"2026-04-19",st:"NH",age:39,ag:"Lin"},
+{id:311,d:"2026-04-20",st:"RI",age:27,ag:"Tom"},
+{id:352,d:"2026-04-21",st:"VT",age:26,ag:"Sharon"},
+{id:1126,d:"2026-04-21",st:"VT",age:73,ag:"Carlos"},
+{id:820,d:"2026-04-23",st:"RI",age:60,ag:"Carlos"},
+{id:628,d:"2026-04-24",st:"VT",age:31,ag:"Carlos"},
+{id:1227,d:"2026-04-24",st:"NH",age:60,ag:"Tom"},
+{id:5,d:"2026-04-25",st:"MA",age:27,ag:"Sharon"},
+{id:721,d:"2026-04-25",st:"VT",age:66,ag:"Dipti"},
+{id:817,d:"2026-04-25",st:"NY",age:64,ag:"Lin"},
+{id:1168,d:"2026-04-26",st:"RI",age:50,ag:"Maria"},
+{id:203,d:"2026-04-28",st:"RI",age:43,ag:"Carlos"},
+{id:357,d:"2026-04-28",st:"MA",age:42,ag:"Dipti"},
+{id:1310,d:"2026-04-28",st:"NH",age:34,ag:"Sharon"},
+{id:1431,d:"2026-04-28",st:"NY",age:65,ag:"Carlos"},
+{id:1084,d:"2026-04-30",st:"NY",age:64,ag:"Tom"},
+{id:464,d:"2026-05-01",st:"VT",age:64,ag:"Carlos"},
+{id:633,d:"2026-05-01",st:"ME",age:33,ag:"Lin"},
+{id:688,d:"2026-05-04",st:"MA",age:47,ag:"Maria"},
+{id:978,d:"2026-05-04",st:"NY",age:43,ag:"Carlos"},
+{id:373,d:"2026-05-05",st:"NY",age:64,ag:"Lin"},
+{id:1214,d:"2026-05-05",st:"NH",age:59,ag:"Carlos"},
+{id:67,d:"2026-05-06",st:"VT",age:57,ag:"Sharon"},
+{id:302,d:"2026-05-06",st:"NY",age:65,ag:"Tom"},
+{id:197,d:"2026-05-07",st:"NY",age:70,ag:"Maria"},
+{id:1298,d:"2026-05-07",st:"CT",age:74,ag:"Tom"},
+{id:214,d:"2026-05-08",st:"ME",age:56,ag:"Dipti"},
+{id:1094,d:"2026-05-10",st:"VT",age:26,ag:"Dipti"},
+{id:1054,d:"2026-05-11",st:"MA",age:32,ag:"Lin"},
+{id:426,d:"2026-05-12",st:"CT",age:72,ag:"Sharon"},
+{id:849,d:"2026-05-12",st:"NH",age:34,ag:"Carlos"},
+{id:265,d:"2026-05-13",st:"ME",age:56,ag:"Sharon"},
+{id:322,d:"2026-05-13",st:"VT",age:48,ag:"Dipti"},
+{id:767,d:"2026-05-13",st:"ME",age:43,ag:"Tom"},
+{id:1110,d:"2026-05-15",st:"ME",age:30,ag:"Carlos"},
+{id:1124,d:"2026-05-15",st:"NH",age:24,ag:"Lin"},
+{id:1111,d:"2026-05-16",st:"NH",age:53,ag:"Tom"},
+{id:1234,d:"2026-05-16",st:"CT",age:35,ag:"Sharon"},
+{id:247,d:"2026-05-17",st:"VT",age:34,ag:"Dipti"},
+{id:107,d:"2026-05-18",st:"RI",age:61,ag:"Maria"},
+{id:760,d:"2026-05-18",st:"CT",age:58,ag:"Maria"},
+{id:874,d:"2026-05-18",st:"NH",age:54,ag:"Lin"},
+{id:1325,d:"2026-05-18",st:"RI",age:30,ag:"Carlos"},
+{id:1397,d:"2026-05-18",st:"CT",age:48,ag:"Carlos"},
+{id:1418,d:"2026-05-18",st:"NY",age:30,ag:"Carlos"},
+{id:693,d:"2026-05-19",st:"NY",age:28,ag:"Lin"},
+{id:1066,d:"2026-05-19",st:"ME",age:43,ag:"Dipti"},
+{id:1135,d:"2026-05-19",st:"CT",age:34,ag:"Tom"},
+{id:937,d:"2026-05-21",st:"RI",age:43,ag:"Maria"},
+{id:751,d:"2026-05-22",st:"VT",age:32,ag:"Lin"},
+{id:89,d:"2026-05-25",st:"RI",age:38,ag:"Lin"},
+{id:423,d:"2026-05-25",st:"CT",age:31,ag:"Sharon"},
+{id:1408,d:"2026-05-25",st:"MA",age:64,ag:"Dipti"},
+{id:1143,d:"2026-05-26",st:"NY",age:64,ag:"Lin"},
+{id:1211,d:"2026-05-27",st:"CT",age:61,ag:"Sharon"},
+{id:1454,d:"2026-05-27",st:"NY",age:27,ag:"Maria"},
+];
+
+const COLORS = ['#2563eb','#7c3aed','#0891b2','#059669','#d97706','#dc2626'];
+const STATE_COLORS = {'CT':'#2563eb','MA':'#7c3aed','ME':'#0891b2','NH':'#059669','NY':'#d97706','RI':'#dc2626','VT':'#9333ea'};
+const AGENT_COLORS = {'Carlos':'#2563eb','Dipti':'#7c3aed','Lin':'#0891b2','Maria':'#059669','Sharon':'#d97706','Tom':'#dc2626'};
+
+let gran = 'month';
+let charts = {};
+
+function getFilters() {
+  return {
+    from: document.getElementById('date-from').value,
+    to: document.getElementById('date-to').value,
+    states: [...document.querySelectorAll('.cb-state:checked')].map(x=>x.value),
+    agents: [...document.querySelectorAll('.cb-agent:checked')].map(x=>x.value)
+  };
+}
+
+function filtered() {
+  const f = getFilters();
+  return CUSTOMERS.filter(c =>
+    c.d >= f.from && c.d <= f.to &&
+    f.states.includes(c.st) &&
+    f.agents.includes(c.ag)
+  );
+}
+
+function bucket(d) {
+  if (gran==='day') return d;
+  if (gran==='month') return d.slice(0,7);
+  return d.slice(0,4);
+}
+
+function setGran(g) {
+  gran = g;
+  ['day','month','year'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x===g));
+  update();
+}
+
+function toggleDD(name) {
+  const wrap = document.getElementById('dd-'+name);
+  wrap.classList.toggle('open');
+}
+
+function toggleAll(name, checked) {
+  document.querySelectorAll('.cb-'+name).forEach(cb => cb.checked = checked);
+  update();
+}
+
+function filterChanged(name) {
+  const all = [...document.querySelectorAll('.cb-'+name)];
+  document.getElementById('all-'+name).checked = all.every(cb=>cb.checked);
+  update();
+}
+
+function resetFilters() {
+  document.getElementById('date-from').value = '2024-01-01';
+  document.getElementById('date-to').value = '2026-05-31';
+  gran = 'month';
+  ['day','month','year'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x==='month'));
+  document.querySelectorAll('.cb-state,.cb-agent').forEach(cb=>cb.checked=true);
+  document.getElementById('all-state').checked = true;
+  document.getElementById('all-agent').checked = true;
+  update();
+}
+
+document.addEventListener('click', e => {
+  document.querySelectorAll('.dd-wrap.open').forEach(w => {
+    if (!w.contains(e.target)) w.classList.remove('open');
+  });
+});
+
+function makeOrUpdate(id, type, data, opts={}) {
+  if (charts[id]) {
+    charts[id].data = data;
+    Object.assign(charts[id].options, opts);
+    charts[id].update('none');
+  } else {
+    charts[id] = new Chart(document.getElementById(id), {type, data, options: {responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}, ...opts}});
+  }
+}
+
+function makeSpark(id, vals, color) {
+  const data = { labels: vals.map((_,i)=>i), datasets: [{ data: vals, borderColor: color, borderWidth: 1.5, pointRadius: 0, fill: true, backgroundColor: color+'22', tension: 0.4 }] };
+  if (charts[id]) { charts[id].data = data; charts[id].update('none'); }
+  else charts[id] = new Chart(document.getElementById(id), { type:'line', data, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{display:false},y:{display:false}} } });
+}
+
+function trendStr(arr) {
+  if (arr.length < 2) return '';
+  const half = Math.floor(arr.length/2);
+  const prior = arr.slice(0,half).reduce((a,b)=>a+b,0);
+  const curr  = arr.slice(half).reduce((a,b)=>a+b,0);
+  if (!prior) return '';
+  const pct = Math.round((curr-prior)/prior*100);
+  const cls = pct>=0?'trend-up':'trend-dn';
+  const sym = pct>=0?'▲':'▼';
+  return `<span class="${cls}">${sym} ${Math.abs(pct)}%</span> vs prior period`;
+}
+
+/* ── Product mix (portfolio-level, not filter-dependent) ── */
+const PRODUCTS = [
+  {label:'Auto + Home', n:525, color:'#2563eb'},
+  {label:'Home Only',   n:499, color:'#7c3aed'},
+  {label:'Auto Only',   n:476, color:'#0891b2'},
+];
+const PROD_TOTAL = PRODUCTS.reduce((s,p)=>s+p.n,0);
+
+const pctLabelPlugin = {
+  id: 'pctLabels',
+  afterDraw(chart) {
+    const { ctx, data } = chart;
+    const total = data.datasets[0].data.reduce((a,b)=>a+b,0);
+    chart.getDatasetMeta(0).data.forEach((arc, i) => {
+      const mid = (arc.startAngle + arc.endAngle) / 2;
+      const r   = (arc.innerRadius + arc.outerRadius) / 2;
+      const x   = arc.x + Math.cos(mid) * r;
+      const y   = arc.y + Math.sin(mid) * r;
+      const pct = ((data.datasets[0].data[i]/total)*100).toFixed(1)+'%';
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px -apple-system,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pct, x, y);
+      ctx.restore();
+    });
+  }
+};
+
+charts['chart-product'] = new Chart(document.getElementById('chart-product'), {
+  type: 'doughnut',
+  data: {
+    labels: PRODUCTS.map(p=>p.label),
+    datasets: [{ data: PRODUCTS.map(p=>p.n), backgroundColor: PRODUCTS.map(p=>p.color), borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '40%',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString()} (${(ctx.raw/PROD_TOTAL*100).toFixed(1)}%)` } }
+    }
+  },
+  plugins: [pctLabelPlugin]
+});
+
+document.getElementById('product-tbl-body').innerHTML =
+  PRODUCTS.map(p => `<tr>
+    <td><span class="dot" style="background:${p.color}"></span>${p.label}</td>
+    <td>${p.n.toLocaleString()}</td>
+    <td>${(p.n/PROD_TOTAL*100).toFixed(1)}%</td>
+  </tr>`).join('') +
+  `<tr class="total-row"><td>Total</td><td>${PROD_TOTAL.toLocaleString()}</td><td>100%</td></tr>`;
+
+function update() {
+  const rows = filtered();
+
+  // KPI: Total Customers
+  document.getElementById('kpi-total').textContent = rows.length.toLocaleString();
+
+  // Time series
+  const timeBuckets = {};
+  rows.forEach(c => { const b=bucket(c.d); timeBuckets[b]=(timeBuckets[b]||0)+1; });
+  const timeKeys = Object.keys(timeBuckets).sort();
+  const timeVals = timeKeys.map(k=>timeBuckets[k]);
+  makeOrUpdate('chart-time','bar',{
+    labels: timeKeys,
+    datasets: [{label:'New Customers', data:timeVals, backgroundColor:'#2563eb99', borderColor:'#2563eb', borderWidth:1, borderRadius:3}]
+  }, {plugins:{legend:{display:false}}, scales:{x:{ticks:{maxRotation:45,font:{size:11}}},y:{beginAtZero:true,ticks:{precision:0}}}});
+
+  makeSpark('spark-total', timeVals, '#2563eb');
+  document.getElementById('kpi-total-trend').innerHTML = trendStr(timeVals);
+
+  // Age distribution
+  const ageBuckets = {'20-29':0,'30-39':0,'40-49':0,'50-59':0,'60-69':0,'70-79':0};
+  rows.forEach(c => {
+    const b = Math.floor(c.age/10)*10;
+    const k = `${b}-${b+9}`;
+    if(ageBuckets[k]!==undefined) ageBuckets[k]++;
+  });
+  makeOrUpdate('chart-age','bar',{
+    labels: Object.keys(ageBuckets),
+    datasets:[{label:'Count', data:Object.values(ageBuckets), backgroundColor:'#0891b299', borderColor:'#0891b2', borderWidth:1, borderRadius:3}]
+  },{plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{precision:0}}}});
+
+  // Agent chart
+  const agCount = {};
+  rows.forEach(c => agCount[c.ag] = (agCount[c.ag]||0)+1);
+  const agKeys = Object.keys(agCount).sort((a,b)=>agCount[b]-agCount[a]);
+  makeOrUpdate('chart-agent','bar',{
+    labels: agKeys,
+    datasets:[{label:'Customers', data:agKeys.map(k=>agCount[k]), backgroundColor: agKeys.map(k=>AGENT_COLORS[k]||'#999'), borderWidth:0, borderRadius:4}]
+  },{plugins:{legend:{display:false}}, indexAxis:'y', scales:{x:{beginAtZero:true,ticks:{precision:0}},y:{grid:{display:false}}}});
+}
+
+update();
+</script>
+</body>
+</html>
